@@ -2,12 +2,13 @@ import numpy as np
 import cv2
 from sklearn.neighbors import NearestNeighbors
 from scipy.stats import norm
+from matplotlib import pyplot as plt
 
 
 class RGB2LAB(object):
-    def __init__(self, ab_bins, ab_bins_to_index):
+    def __init__(self, ab_bins):
         self.ab_bins = ab_bins
-        self.ab_bins_to_index = ab_bins_to_index
+        self.ab_bins_to_index = {x: i for i, x in enumerate(self.ab_bins)}
         self.num_bins = len(ab_bins)
         self.nbrs = NearestNeighbors(
             n_neighbors=5, algorithm='ball_tree').fit(self.ab_bins)
@@ -18,28 +19,43 @@ class RGB2LAB(object):
         l = lab_image[:, :, 0]
 
         # AB channels are used as ground truth
-        ab = lab_image[:, :, 1:]
+        ab = lab_image[:, :, 1:].astype(np.int16) - 128
         w, h = ab.shape[0], ab.shape[1]
 
         ab_reshaped = ab.reshape(-1, 2)
         distances, indices = self.nbrs.kneighbors(ab_reshaped)
 
-        # Output ab dim: 313 x w x h
+        # Output ab dim: num_bins x w x h
         y_truth = np.zeros((self.num_bins, w, h))
         z_truth = np.zeros((self.num_bins, w, h))
 
         for i in range(w):
             for j in range(h):
                 pixel_index = i * w + j
-                assert ab[i, j] == ab_reshaped[pixel_index]
+                assert (ab[i, j] == ab_reshaped[pixel_index]).all()
 
                 true_ab = ab_reshaped[pixel_index]
-                true_ab_index = self.ab_bins_to_index[true_ab]
-
-                y_truth[true_ab_index, w, h] = 1
-                z_truth[true_ab_index, w, h] = 1
 
                 for nbr_idx, distance in zip(indices[pixel_index],
                                              distances[pixel_index]):
-                    z_truth[nbr_idx, w, h] = norm.pdf(distance)
-        return {'l': l, 'z_truth': z_truth, 'y_truth': y_truth}
+                    z_truth[nbr_idx, i, j] = norm.pdf(distance)
+                # self._plot(true_ab, z_truth)
+        return {'l': l, 'z_truth': z_truth}
+
+    def _plot(self, true_ab, z_truth):
+        # Plot all ab_bins in our data domain as green dots(.)
+        all_x, all_y = [val[0] for val in self.ab_bins], [
+            val[1] for val in self.ab_bins
+        ]
+        plt.plot(all_x, all_y, 'g.')
+
+        # Plot the true ab value of this pixel as a red circle(o)
+        plt.plot(true_ab[0], true_ab[1], 'ro')
+
+        # Plot the 5 nearest neighbors to the true ab value as blue stars(*)
+        indices = [x[0] for x in np.argwhere(z_truth > 0)]
+        x, y = [val[0] for val in np.array(self.ab_bins)[indices]], [
+            val[1] for val in np.array(self.ab_bins)[indices]
+        ]
+        plt.plot(x, y, 'b*')
+        plt.show()
