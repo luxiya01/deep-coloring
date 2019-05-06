@@ -3,6 +3,17 @@ import cv2
 from sklearn.neighbors import NearestNeighbors
 from scipy.stats import norm
 from matplotlib import pyplot as plt
+import torch
+
+
+class ToTensor(object):
+    def __call__(self, sample):
+        lightness, z_truth = sample['lightness'], sample['z_truth']
+
+        return {
+            'lightness': torch.from_numpy(lightness),
+            'z_truth': torch.from_numpy(z_truth)
+        }
 
 
 class RGB2LAB(object):
@@ -14,7 +25,11 @@ class RGB2LAB(object):
             n_neighbors=5, algorithm='ball_tree').fit(self.ab_bins)
 
     def __call__(self, sample):
-        lab_image = cv2.cvtColor(sample, cv2.COLOR_BGR2LAB)
+        sample = np.asarray(sample)
+
+        # Image read in by PIL follows RGB convension, therefore the conversion
+        # is RGB2LAB
+        lab_image = cv2.cvtColor(sample, cv2.COLOR_RGB2LAB)
         # L channel is used as input
         l = lab_image[:, :, 0]
 
@@ -40,7 +55,7 @@ class RGB2LAB(object):
                                              distances[pixel_index]):
                     z_truth[nbr_idx, i, j] = norm.pdf(distance)
                 # self._plot(true_ab, z_truth)
-        return {'l': l, 'z_truth': z_truth}
+        return {'lightness': l, 'z_truth': z_truth}
 
     def _plot(self, true_ab, z_truth):
         # Plot all ab_bins in our data domain as green dots(.)
