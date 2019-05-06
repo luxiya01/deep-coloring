@@ -6,34 +6,13 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import sys  
+import network
 
-'''
 ros_path = '/opt/ros/kinetic/lib/python2.7/dist-packages'
 if ros_path in sys.path:
     sys.path.remove(ros_path)
 import cv2
 sys.path.append('/opt/ros/kinetic/lib/python2.7/dist-packages')
-'''
-import cv2
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        #self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        #self.fc2 = nn.Linear(120, 84)
-        #self.fc3 = nn.Linear(84, 10)
-
-    def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
-        #x = F.relu(self.fc1(x))
-        #x = F.relu(self.fc2(x))
-        #x = self.fc3(x)
-        return x
-
 
 
 def read_all_images(path_to_data):
@@ -92,16 +71,13 @@ def ab_histogram_dataset(dataset):
     im_ab_vec = np.reshape(im_ab, (np.prod(im_ab.shape[:3]),2))-128  # 128 since colors are 8bit
     hist, xedges, yedges = np.histogram2d(im_ab_vec[:,0], im_ab_vec[:,1], bins=100, range=[[-110,110],[-110,110]])
     hist_log = np.log(hist/im_ab_vec.shape[0])
-    x_mesh, y_mesh = np.meshgrid(xedges, np.flip(yedges))
+    x_mesh, y_mesh = np.meshgrid(xedges, yedges)
     plt.figure(1)
     plt.pcolormesh(x_mesh, y_mesh, hist_log)
     
 
 
 if __name__ == '__main__':
-    net = Net()
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
     data_dir = '/home/perrito/kth/DD2424/project/images/stl10_binary/train_X.bin'
     images = read_all_images(data_dir)
@@ -114,13 +90,30 @@ if __name__ == '__main__':
 
     #plt.show()
 
-    tf1 = Resize((512,512))
-    tf2 = Resize((64,64))
+    tf1 = Resize((64,64))
+    tf2 = Resize((256,256))
     image2 = tf1(images_lab[0,:,:,:])
     image3 = tf2(image_lab)
     #image2 = cv2.resize(image, (80, 152))#, interpolation=cv2.INTER_CUBIC)
     #image3 = cv2.resize(image, (512, 512), interpolation=cv2.INTER_CUBIC)#, interpolation=cv2.INTER_CUBIC)
     #image2x = torchvision.transforms.Resize(image, (int(92*2), int(92*2))))
+    image3_L = torch.from_numpy(np.array([[image3[:,:,0]]]).astype(np.double))
+    net = network.Net()
+    image3_ab = net(image3_L.float())
+    print('types')
+    birb_L_np = image3_L.numpy()
+    birb_ab_np = image3_ab.detach().numpy()
+    print(birb_L_np.shape)
+    birb_L_np =  cv2.resize(birb_L_np[0,:,:,:], (64,64), interpolation=cv2.INTER_LINEAR)
+    print(type(image3_L.numpy()))
+    print(birb_L_np.shape)
+    print(type(image3_ab.detach().numpy()))
+    print(birb_ab_np.shape)
+    
+    birb = np.concatenate(image3_L.numpy(), image3_ab.detach().numpy())
+    plt.figure(30)
+    plt.imshow(birb)
+
 plt.figure(2)
 plt.subplot(1,3,1)
 plt.imshow(image)
@@ -130,8 +123,6 @@ plt.subplot(1,3,3)
 plt.imshow(image3)
 plt.show()
 
-trainloader = torch.utils.data.DataLoader(images, batch_size=4,
-                                          shuffle=True, num_workers=2)
 #image_tensor = torch.from_numpy(np.array([image], dtype='float64'))
 #print(image_tensor.shape)
 #image_tensor = image_tensor.permute(0,3,1,2)
