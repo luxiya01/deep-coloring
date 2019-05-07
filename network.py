@@ -10,7 +10,7 @@ import sys
 
 
 class Net(nn.Module):
-
+    # Input should be [n, 1, 256, 256] torch tensor
     def __init__(self):
         super(Net, self).__init__()
         self.BN_momentum = 1e-3  # Batch normalization momentum
@@ -56,9 +56,8 @@ class Net(nn.Module):
         self.conv8_color_bins = nn.Conv2d(256, self.color_bins, 1, stride=1, padding=0, dilation=1) 
         ### Softmax ###
         self.softmax8 = nn.Softmax2d() 
-        ### Decoding ###
+        ### Decoding and upsampling ###
         self.conv8_ab = nn.Conv2d(self.color_bins, 2, 1, stride=1, padding=0, dilation=1)  
-
 
     def forward(self, in_data):
         ### Conv 1 ###
@@ -69,7 +68,6 @@ class Net(nn.Module):
         x = self.conv1_2norm(x)
         print('Conv 1')
         print(x.shape)
-
         ### Conv 2 ###
         x = F.relu(self.conv2_1(x))
         x = F.relu(self.conv2_2(x))
@@ -124,17 +122,13 @@ class Net(nn.Module):
         print(x.shape)
         ### Softmax ###
         x = self.softmax8(x)
-        ### Decoding ###
+        ### Decoding and upsample###
         x = self.conv8_ab(x)
+        x = F.interpolate(x, size=256, mode='bilinear', align_corners=False)
+        print(x.shape)
         return x
-'''
-    def num_flat_features(self, x):
-        size = x.size()[1:]  # all dimensions except the batch dimension
-        num_features = 1
-        for s in size:
-            num_features *= s
-        return num_features
-'''
+
+
 if __name__ == '__main__':
 
     net = Net()

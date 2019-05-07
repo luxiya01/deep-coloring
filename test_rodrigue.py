@@ -44,6 +44,7 @@ def read_all_images(path_to_data):
 
 class Convert2lab:
     def __call__(self, images):
+        ### Takes np.arrays and outputs np.arrays
         images_lab = np.zeros_like(images)
         for i in range(images.shape[0]):
             images_lab[i,:,:,:] = cv2.cvtColor(images[i,:,:,:], cv2.COLOR_BGR2LAB)
@@ -52,51 +53,86 @@ class Convert2lab:
 
 class Resize:
     def __init__(self, out_size):
-        assert isinstance(out_size, (int, tuple))
+        assert isinstance(out_size, tuple)
         self.out_size = out_size
 
-    def __call__(self,image):
-        h, w = image.shape[0:2]
-        if h < self.out_size[0] and w < self.out_size[1]:  # upsample
-            image_out = cv2.resize(image, self.out_size, interpolation=cv2.INTER_LINEAR)  # faster with cv2.INTER_LINEAR prettier with cv2.INTER_CUBIC  
+    def __call__(self,images):
+        ### Input torch tensor shape [n, channels, H, W], output is on same format
+        print(images.shape)
+        if len(images.shape) == 3 and images.shape[0] == 1:  # if only one image, channels should always have a dimension
+            images_np = np.array([images.numpy()])  # 3D to 4D tensor
+            print('snt')
+            print(images_np.shape)
+            images_np = np.transpose(images_np, (0,2,3,1))  # opencv wants channels last
         else:
-            image_out = cv2.resize(image, self.out_size, interpolation=cv2.INTER_AREA)
-        return image_out
+            images_np = images.numpy()
+            images_np = np.transpose(images_np, (0,2,3,1))  # opencv wants channels last
+
+        print('resize')
+        print(images_np.shape)
+        h, w = images.shape[1:3]
+        images_out = np.zeros((images_np.shape[0], self.out_size[0], self.out_size[1], images_np.shape[3]))
+        for i in np.arange(images_np.shape[0]):
+            if h < self.out_size[0] and w < self.out_size[1]:  # upsample
+                image_resized = cv2.resize(images_np[i,:,:,:], self.out_size, interpolation=cv2.INTER_LINEAR)  # faster with cv2.INTER_LINEAR prettier with cv2.INTER_CUBIC  
+                if len(image_resized.shape) == 2:
+                    image_resized = np.transpose(np.array([image_resized]),(1,2,0))
+                images_out[i,:,:,:] 
+            else:
+                image_resized = cv2.resize(images_np[i,:,:,:], self.out_size, interpolation=cv2.INTER_AREA)  
+                print(image_resized.shape)
+                if len(image_resized.shape) == 2:
+                    image_resized = np.transpose(np.array([image_resized]),(1,2,0))
+                images_out[i,:,:,:] = image_resized
+        tensor_out = torch.from_numpy(np.transpose(images_out, (0,1,2,3)))
+        return tensor_out
 
 
-def ab_histogram_dataset(dataset):
+def ab_histogram_from_dataset(dataset):
     #im_ab = dataset[0,:,:,1:]
     im_ab = dataset[:,:,:,1:]
     im_ab = im_ab.astype(np.int16)
     im_ab_vec = np.reshape(im_ab, (np.prod(im_ab.shape[:3]),2))-128  # 128 since colors are 8bit
     hist, xedges, yedges = np.histogram2d(im_ab_vec[:,0], im_ab_vec[:,1], bins=100, range=[[-110,110],[-110,110]])
     hist_log = np.log(hist/im_ab_vec.shape[0])
+    # Plot
     x_mesh, y_mesh = np.meshgrid(xedges, yedges)
     plt.figure(1)
     plt.pcolormesh(x_mesh, y_mesh, hist_log)
-    
+
+def imshow_torch(image, figure=1):
+    ### imshows torch tensors, image.shape should be [channel,H,W]
+    plt.figure(figure)
+    image_np = np.transpose(image.numpy(), (1,2,0))
+    if image_np.shape[2] == 1:  # Gray scale
+        image_np = image_np[:,:,0]
+    plt.imshow(image_np/255)
+
 
 
 if __name__ == '__main__':
-
     data_dir = '/home/perrito/kth/DD2424/project/images/stl10_binary/train_X.bin'
     images = read_all_images(data_dir)
     color_conversion = Convert2lab()
     images_lab = color_conversion(images)
-    ab_histogram_dataset(images_lab)
-    #image = torch.from_numpy(images[3,:,:,:])
-    image = images[0,:,:,:]
-    image_lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    images_lab = np.transpose(images_lab,(0,3,1,2))  # torch format
+    images_L = np.transpose(np.array([images_lab[:,0,:,:]]),(1,0,2,3))
+    lab_torch = torch.from_numpy(images_lab)  # Images in torch format
+    L_torch = torch.from_numpy(images_L).float()
+    #ab_histogram_from_dataset(images_lab)
 
-    #plt.show()
+    test_set = L_torch[:3,:,:,:]
+    test_set256 = F.interpolate(test_set, size=256, mode='bilinear', align_corners=False)
 
-    tf1 = Resize((64,64))
-    tf2 = Resize((256,256))
-    image2 = tf1(images_lab[0,:,:,:])
-    image3 = tf2(image_lab)
-    #image2 = cv2.resize(image, (80, 152))#, interpolation=cv2.INTER_CUBIC)
-    #image3 = cv2.resize(image, (512, 512), interpolation=cv2.INTER_CUBIC)#, interpolation=cv2.INTER_CUBIC)
-    #image2x = torchvision.transforms.Resize(image, (int(92*2), int(92*2))))
+    net = network.Net()
+    out_ab = net(test_set256.float())
+    print(out_ab.shape)
+    print(test_set256.shape)
+    colorized_im = torch.cat((test_set256, out_ab), 1)
+    print(colorized_im.shape)
+    imshow_torch(colorized_im.detach()[0,:,:,:])
+
+    '''
     image3_L = torch.from_numpy(np.array([[image3[:,:,0]]]).astype(np.double))
     net = network.Net()
     image3_ab = net(image3_L.float())
@@ -111,17 +147,8 @@ if __name__ == '__main__':
     print(birb_ab_np.shape)
     
     birb = np.concatenate(image3_L.numpy(), image3_ab.detach().numpy())
-    plt.figure(30)
-    plt.imshow(birb)
-
-plt.figure(2)
-plt.subplot(1,3,1)
-plt.imshow(image)
-plt.subplot(1,3,2)
-plt.imshow(image2)
-plt.subplot(1,3,3)
-plt.imshow(image3)
-plt.show()
+    '''
+    plt.show()
 
 #image_tensor = torch.from_numpy(np.array([image], dtype='float64'))
 #print(image_tensor.shape)
