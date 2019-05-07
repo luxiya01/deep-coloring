@@ -1,5 +1,6 @@
 import lab_distribution
 from custom_transforms import RGB2LAB, ToTensor
+from network import Net
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -14,10 +15,15 @@ trainset = torchvision.datasets.ImageFolder(
 trainloader = torch.utils.data.DataLoader(
     trainset, batch_size=4, shuffle=False, num_workers=1)
 
-dataiter = iter(trainloader)
-data, labels = dataiter.next()
+cnn = Net()
 
-for key, val in data.items():
-    print(key, ': ', type(key), ', ', val.shape)
-
-print(labels)
+print('------ Starting... ------')
+for i, data in enumerate(trainloader):
+    if i > 5:
+        break
+    print('i = ', i)
+    # inputs = {'lightness': L-channel, 'z-truth': true ab distribution}
+    inputs, labels = data
+    print(inputs['lightness'].shape, inputs['lightness'].type())
+    print(inputs['z_truth'].shape, inputs['z_truth'].type())
+    outputs = cnn(inputs['lightness'])
