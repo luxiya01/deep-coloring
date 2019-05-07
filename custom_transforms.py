@@ -26,12 +26,13 @@ class RGB2LAB(object):
 
     def __call__(self, sample):
         sample = np.asarray(sample)
+        print('RGB2LAB is called!')
 
         # Image read in by PIL follows RGB convension, therefore the conversion
         # is RGB2LAB
         lab_image = cv2.cvtColor(sample, cv2.COLOR_RGB2LAB)
         # L channel is used as input
-        l = lab_image[:, :, 0]
+        l = lab_image[:, :, 0].astype(np.float32)
 
         # AB channels are used as ground truth
         ab = lab_image[:, :, 1:].astype(np.int16) - 128
@@ -55,7 +56,7 @@ class RGB2LAB(object):
                                              distances[pixel_index]):
                     z_truth[nbr_idx, i, j] = norm.pdf(distance)
                 # self._plot(true_ab, z_truth)
-        return {'lightness': l, 'z_truth': z_truth}
+        return {'lightness': l.reshape(1, w, h), 'z_truth': z_truth}
 
     def _plot(self, true_ab, z_truth):
         # Plot all ab_bins in our data domain as green dots(.)
