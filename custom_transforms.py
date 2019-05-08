@@ -21,7 +21,6 @@ class ToTensor(object):
 class RGB2LAB(object):
     def __init__(self, ab_bins):
         self.ab_bins = ab_bins
-        self.ab_bins_to_index = {x: i for i, x in enumerate(self.ab_bins)}
         self.num_bins = len(ab_bins)
         self.nbrs = NearestNeighbors(
             n_neighbors=5, algorithm='ball_tree').fit(self.ab_bins)
