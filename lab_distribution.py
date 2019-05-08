@@ -33,7 +33,7 @@ def read_all_images(path_to_data):
         # You might want to comment this line or reverse the shuffle
         # if you will use a learning algorithm like CNN, since they like
         # their channels separated.
-        images = np.transpose(images, (0, 3, 2, 1))
+        images = np.transpose(images, (0, 3, 2, 1)).astype(np.float32) / 255
         return images
 
 
@@ -65,10 +65,8 @@ class Resize:
 
 def ab_histogram_dataset(dataset, plot=False):
     im_ab = dataset[:, :, :, 1:]
-    im_ab = im_ab.astype(np.int16)
     im_ab_vec = np.reshape(
-        im_ab,
-        (np.prod(im_ab.shape[:3]), 2)) - 128  # 128 since colors are 8bit
+        im_ab, (np.prod(im_ab.shape[:3]), 2))  # 128 since colors are 8bit
     hist, xedges, yedges = np.histogram2d(
         im_ab_vec[:, 0],
         im_ab_vec[:, 1],
