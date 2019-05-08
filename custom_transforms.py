@@ -9,7 +9,7 @@ import torch
 class ToTensor(object):
     def __call__(self, sample):
         lightness, z_truth, original_lab_image = sample['lightness'], sample[
-            'z_truth'], sample['original_lab_image']
+            'z_truth'], np.transpose(sample['original_lab_image'], (2, 0, 1))
 
         return {
             'lightness': torch.from_numpy(lightness),
