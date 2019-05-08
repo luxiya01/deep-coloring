@@ -126,6 +126,7 @@ class Net(nn.Module):
         x = self.conv8_ab(x)
         x = F.interpolate(x, size=256, mode='bilinear', align_corners=False)
         print(x.shape)
+        print('Network done \n \n')
         return x
 
 

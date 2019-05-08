@@ -49,7 +49,7 @@ class Convert2lab:
         images_lab = np.zeros_like(images)
         for i in range(images.shape[0]):
             images_lab[i, :, :, :] = cv2.cvtColor(images[i, :, :, :],
-                                                  cv2.COLOR_BGR2LAB)
+                                                  cv2.COLOR_RGB2LAB)
         return images_lab
 
 
@@ -125,13 +125,59 @@ def ab_histogram_from_dataset(dataset):
 def imshow_torch(image, figure=1):
     ### imshows torch tensors, image.shape should be [channel,H,W]
     plt.figure(figure)
-    image_np = np.transpose(image.numpy(), (1, 2, 0))
-    if image_np.shape[2] == 1:  # Gray scale
-        image_np = image_np[:, :, 0]
+    # opencv wants images like [H,W,channel]
+    image_np_lab = np.transpose(image.numpy(), (1, 2, 0))
+    
+    print('lab shape')
+    print(image_np_lab.shape)
+    '''
+    if image_np_lab.shape[2] == 1:  # Gray scale
+        image_np_lab = image_np_lab[:, :, 0]
+    '''
+    image_np_rgb_all = cv2.cvtColor(image_np_lab, cv2.COLOR_LAB2RGB)
+    plt.subplot(2,2,1)
+    plt.imshow(image_np_rgb_all)
+    plt.title('All channels')
 
-    image_np = cv2.cvtColor(image_np, cv2.COLOR_LAB2RGB)
-    plt.imshow(image_np)
+    image_np_L = np.zeros_like(image_np_lab)
+    image_np_L[:,:,0] = image_np_lab[:,:,0]
+    image_np_rgb_L = cv2.cvtColor(image_np_L, cv2.COLOR_LAB2RGB)
+    plt.subplot(2,2,2)
+    plt.imshow(image_np_rgb_L)
+    plot_image_channels(torchimage_np_rgb_L)
+    plt.title('Only L channel')
 
+    image_np_a = np.zeros_like(image_np_lab)
+    image_np_a[:,:,1] = image_np_lab[:,:,1]
+    image_np_rgb_a = cv2.cvtColor(image_np_a, cv2.COLOR_LAB2RGB)
+    plt.subplot(2,2,3)
+    plt.imshow(image_np_rgb_a)
+    plt.title('Only a channel')
+
+    image_np_b = np.zeros_like(image_np_lab)
+    image_np_b[:,:,2] = image_np_lab[:,:,2]
+    image_np_rgb_b = cv2.cvtColor(image_np_b, cv2.COLOR_LAB2RGB)
+    plt.subplot(2,2,4)
+    plt.imshow(image_np_rgb_b)
+    plt.title('Only b channel')
+
+
+def plot_image_channels(image, figure=1):
+    image = image.numpy()
+    print(image.shape)
+    plt.figure(figure)
+    plt.subplot(3,1,1)
+    plt.plot(image[0,:,:])
+    plt.title('L channel')
+
+    plt.subplot(3,1,2)
+    plt.plot(image[1,:,:])
+    plt.title('a channel')
+
+    plt.subplot(3,1,3)
+    plt.plot(image[2,:,:])
+    plt.title('b channel')
+    
 
 if __name__ == '__main__':
     data_dir = '/home/perrito/kth/DD2424/project/images/stl10_binary/train_X.bin'
@@ -144,37 +190,24 @@ if __name__ == '__main__':
     L_torch = torch.from_numpy(images_L).float()
     #ab_histogram_from_dataset(images_lab)
 
-    test_set = L_torch[:3, :, :, :]
+    test_set = L_torch[:1, :, :, :]
     test_set256 = F.interpolate(
         test_set, size=256, mode='bilinear', align_corners=False)
 
     net = network.Net()
     out_ab = net(test_set256.float())
-    print(out_ab.shape)
-    print(test_set256.shape)
     colorized_im = torch.cat((test_set256, out_ab), 1)
-    print(colorized_im.shape)
-    imshow_torch(colorized_im.detach()[0, :, :, :])
-    '''
-    image3_L = torch.from_numpy(np.array([[image3[:,:,0]]]).astype(np.double))
-    net = network.Net()
-    image3_ab = net(image3_L.float())
-    print('types')
-    birb_L_np = image3_L.numpy()
-    birb_ab_np = image3_ab.detach().numpy()
-    print(birb_L_np.shape)
-    birb_L_np =  cv2.resize(birb_L_np[0,:,:,:], (64,64), interpolation=cv2.INTER_LINEAR)
-    print(type(image3_L.numpy()))
-    print(birb_L_np.shape)
-    print(type(image3_ab.detach().numpy()))
-    print(birb_ab_np.shape)
     
-    birb = np.concatenate(image3_L.numpy(), image3_ab.detach().numpy())
-    '''
+    colorized_im_np = colorized_im.detach().numpy()
+
+    plot_image_channels(colorized_im.detach()[0,:,:,:], figure=1)
+    imshow_torch(colorized_im.detach()[0, :, :, :], figure=2)
+
+    imshow_torch(lab_torch[0, :, :, :], figure=3)
+    plot_image_channels(lab_torch[0, :, :, :], figure=4)
+
+
     plt.show()
 
-#image_tensor = torch.from_numpy(np.array([image], dtype='float64'))
-#print(image_tensor.shape)
-#image_tensor = image_tensor.permute(0,3,1,2)
-#print(image_tensor.shape)
-#output  = net(image_tensor)
+
+
