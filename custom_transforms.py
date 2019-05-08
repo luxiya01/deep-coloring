@@ -63,7 +63,10 @@ class RGB2LAB(object):
         #                   z_truth[nbr_idx, i, j] = norm.pdf(distance)
         #               # self._plot(true_ab, z_truth)
         #       assert (z_truth == z_truth_reshaped).all()
-        return {'lightness': l.reshape(1, w, h), 'z_truth': z_truth_reshaped}
+        return {
+            'lightness': l.reshape(1, w, h).astype(np.float32),
+            'z_truth': z_truth_reshaped.astype(np.float32)
+        }
 
     def _plot(self, true_ab, z_truth):
         # Plot all ab_bins in our data domain as green dots(.)
