@@ -94,10 +94,19 @@ def convert_index_to_ab_value(index):
 def discretize_ab_bins(hist_log):
     non_zero_indices = np.argwhere(hist_log > -float('inf'))
     ab_bins = []
+    a_bins = []
+    b_bins = []
     for i in non_zero_indices:
         ab_val = convert_index_to_ab_value(i)
+        a, b = ab_val
+        a_bins.append(a)
+        b_bins.append(b)
         ab_bins.append(ab_val)
-    return ab_bins
+    return {
+        'ab_bins': np.array(ab_bins),
+        'a_bins': np.array(a_bins),
+        'b_bins': np.array(b_bins)
+    }
 
 
 def parse_args():
