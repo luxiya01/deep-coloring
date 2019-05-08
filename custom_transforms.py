@@ -8,11 +8,13 @@ import torch
 
 class ToTensor(object):
     def __call__(self, sample):
-        lightness, z_truth = sample['lightness'], sample['z_truth']
+        lightness, z_truth, original_image = sample['lightness'], sample[
+            'z_truth'], sample['original_image']
 
         return {
             'lightness': torch.from_numpy(lightness),
-            'z_truth': torch.from_numpy(z_truth)
+            'z_truth': torch.from_numpy(z_truth),
+            'original_image': torch.from_numpy(original_image)
         }
 
 
@@ -65,7 +67,8 @@ class RGB2LAB(object):
         #       assert (z_truth == z_truth_reshaped).all()
         return {
             'lightness': l.reshape(1, w, h).astype(np.float32),
-            'z_truth': z_truth_reshaped.astype(np.float32)
+            'z_truth': z_truth_reshaped.astype(np.float32),
+            'original_image': sample.astype(np.float32)
         }
 
     def _plot(self, true_ab, z_truth):
