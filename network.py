@@ -1,5 +1,6 @@
 import torch
 import torchvision  
+import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -11,10 +12,12 @@ import sys
 
 class Net(nn.Module):
     # Input should be [n, 1, 256, 256] torch tensor
-    def __init__(self):
+    def __init__(self, ab_bins_dict):
         super(Net, self).__init__()
+        self.a_bins = ab_bins_dict['a_bins']
+        self.b_bins = ab_bins_dict['b_bins']
         self.BN_momentum = 1e-3  # Batch normalization momentum
-        self.color_bins = 313  # Number of color bins in ab colorspace
+        self.color_bins = 225  # Number of color bins in ab colorspace
         # nn.Conv2d(a,b,c);  a input image channel, b output channels, cxc square convolution kernel
         ### Conv 1 ###
         self.bw_conv1_1 = nn.Conv2d(1, 64, 3, stride=1, padding=1, dilation=1)
@@ -61,73 +64,63 @@ class Net(nn.Module):
 
     def forward(self, in_data):
         ### Conv 1 ###
-        print('in_data')
-        print(in_data.shape)
         x = F.relu(self.bw_conv1_1(in_data))
         x = F.relu(self.conv1_2(x))
         x = self.conv1_2norm(x)
-        print('Conv 1')
-        print(x.shape)
         ### Conv 2 ###
         x = F.relu(self.conv2_1(x))
         x = F.relu(self.conv2_2(x))
         x = self.conv2_2norm(x)
-        print('Conv 2')
-        print(x.shape)
         ### Conv 3 ###
         x = F.relu(self.conv3_1(x))
         x = F.relu(self.conv3_2(x))
         x = F.relu(self.conv3_3(x))
         x = self.conv3_3norm(x)
-        print('Conv 3')
-        print(x.shape)
         ### Conv 4 ###
         x = F.relu(self.conv4_1(x))
         x = F.relu(self.conv4_2(x))
         x = F.relu(self.conv4_3(x))
         x = self.conv4_3norm(x)
-        print('Conv 4')
-        print(x.shape)
         ### Conv 5 ###
         x = F.relu(self.conv5_1(x))
         x = F.relu(self.conv5_2(x))
         x = F.relu(self.conv5_3(x))
         x = self.conv5_3norm(x)
-        print('Conv 5')
-        print(x.shape)
         ### Conv 6 ###
         x = F.relu(self.conv6_1(x))
         x = F.relu(self.conv6_2(x))
         x = F.relu(self.conv6_3(x))
         x = self.conv6_3norm(x)
-        print('Conv 6')
-        print(x.shape)
         ### Conv 7 ###
         x = F.relu(self.conv7_1(x))
         x = F.relu(self.conv7_2(x))
         x = F.relu(self.conv7_3(x))
         x = self.conv7_3norm(x)
-        print('Conv 7')
-        print(x.shape)
         ### Conv 8 ###
         x = F.relu(self.conv8_1(x))
-        print('8.1')
-        print(x.shape)
         x = F.relu(self.conv8_2(x))
-        print(x.shape)
         x = F.relu(self.conv8_3(x))
-        print(x.shape)
         x = F.relu(self.conv8_color_bins(x))
-        print('Conv 8')
-        print(x.shape)
+
+        ### Upsample###
+        x = F.interpolate(x, size=96, mode='bilinear', align_corners=False)
+
         ### Softmax ###
-        x = self.softmax8(x)
-        ### Decoding and upsample###
-        x = self.conv8_ab(x)
-        x = F.interpolate(x, size=256, mode='bilinear', align_corners=False)
-        print(x.shape)
+        self.Zhat = self.softmax8(x)
+
+        ### Decoding ###
+        ind = torch.argmax(self.Zhat, dim=1)
+        a,b = torch.from_numpy(self.a_bins[ind]), torch.from_numpy(self.b_bins[ind])
+        a = torch.reshape(a, (a.shape[0],1,a.shape[1], a.shape[2]))  # a has originally shape [samples,H,W], has to be [samples,channels,H,W] 
+        b = torch.reshape(b, (b.shape[0],1,b.shape[1], b.shape[2]))
+        ab = torch.cat((a,b), 1).float()
+
         print('Network done \n \n')
-        return x
+        return ab
+
+    def loss(self, Z):
+        l = -torch.sum(Z*self.Zhat)
+        return l 
 
 
 if __name__ == '__main__':
@@ -136,4 +129,14 @@ if __name__ == '__main__':
     print(len(list(net.parameters())))
     in_data = torch.rand(1,1,256,256)
     out_data = net(in_data)
+    target = torch.rand(1,2,256,256)
+
+    print(out_data.shape)
+    print(target.shape)
+    
+    criterion = nn.CrossEntropyLoss()
+    criterion = nn.MSELoss()
+    loss = criterion(out_data, target)
+    print(loss.grad_fn)
+
     print(out_data.shape)
