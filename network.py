@@ -1,21 +1,19 @@
 import torch
-import torchvision  
+import torchvision
 import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
-import sys  
+import sys
 import lab_distribution as lab_dist
-
-
 
 
 class Net(nn.Module):
     # Input should be [n, 1, 256, 256] torch tensor
     def __init__(self, ab_bins_dict):
-        super(Net, self).__init__()    
+        super(Net, self).__init__()
         self.a_bins = ab_bins_dict['a_bins']
         self.b_bins = ab_bins_dict['b_bins']
         self.BN_momentum = 1e-3  # Batch normalization momentum
@@ -32,37 +30,41 @@ class Net(nn.Module):
         ### Conv 3 ###
         self.conv3_1 = nn.Conv2d(128, 256, 3, stride=1, padding=1, dilation=1)
         self.conv3_2 = nn.Conv2d(256, 256, 3, stride=1, padding=1, dilation=1)
-        self.conv3_3 = nn.Conv2d(256, 256, 3, stride=2, padding=1, dilation=1)   
+        self.conv3_3 = nn.Conv2d(256, 256, 3, stride=2, padding=1, dilation=1)
         self.conv3_3norm = nn.BatchNorm2d(256, momentum=self.BN_momentum)
         ### Conv 4 ###
         self.conv4_1 = nn.Conv2d(256, 512, 3, stride=1, padding=1, dilation=1)
         self.conv4_2 = nn.Conv2d(512, 512, 3, stride=1, padding=1, dilation=1)
-        self.conv4_3 = nn.Conv2d(512, 512, 3, stride=1, padding=1, dilation=1)   
+        self.conv4_3 = nn.Conv2d(512, 512, 3, stride=1, padding=1, dilation=1)
         self.conv4_3norm = nn.BatchNorm2d(512, momentum=self.BN_momentum)
         ### Conv 5 ###
         self.conv5_1 = nn.Conv2d(512, 512, 3, stride=1, padding=2, dilation=2)
         self.conv5_2 = nn.Conv2d(512, 512, 3, stride=1, padding=2, dilation=2)
-        self.conv5_3 = nn.Conv2d(512, 512, 3, stride=1, padding=2, dilation=2)   
+        self.conv5_3 = nn.Conv2d(512, 512, 3, stride=1, padding=2, dilation=2)
         self.conv5_3norm = nn.BatchNorm2d(512, momentum=self.BN_momentum)
         ### Conv 6 ###
         self.conv6_1 = nn.Conv2d(512, 512, 3, stride=1, padding=2, dilation=2)
         self.conv6_2 = nn.Conv2d(512, 512, 3, stride=1, padding=2, dilation=2)
-        self.conv6_3 = nn.Conv2d(512, 512, 3, stride=1, padding=2, dilation=2)   
+        self.conv6_3 = nn.Conv2d(512, 512, 3, stride=1, padding=2, dilation=2)
         self.conv6_3norm = nn.BatchNorm2d(512, momentum=self.BN_momentum)
         ### Conv 7 ###
         self.conv7_1 = nn.Conv2d(512, 512, 3, stride=1, padding=1, dilation=1)
         self.conv7_2 = nn.Conv2d(512, 512, 3, stride=1, padding=1, dilation=1)
-        self.conv7_3 = nn.Conv2d(512, 512, 3, stride=1, padding=1, dilation=1)   
+        self.conv7_3 = nn.Conv2d(512, 512, 3, stride=1, padding=1, dilation=1)
         self.conv7_3norm = nn.BatchNorm2d(512, momentum=self.BN_momentum)
         ### Conv 8 ###
-        self.conv8_1 = nn.ConvTranspose2d(512, 256, 4, stride=2, padding=1, dilation=1)  # The dilation should be on the input
+        self.conv8_1 = nn.ConvTranspose2d(
+            512, 256, 4, stride=2, padding=1,
+            dilation=1)  # The dilation should be on the input
         self.conv8_2 = nn.Conv2d(256, 256, 3, stride=1, padding=1, dilation=1)
-        self.conv8_3 = nn.Conv2d(256, 256, 3, stride=1, padding=1, dilation=1)   
-        self.conv8_color_bins = nn.Conv2d(256, self.color_bins, 1, stride=1, padding=0, dilation=1) 
+        self.conv8_3 = nn.Conv2d(256, 256, 3, stride=1, padding=1, dilation=1)
+        self.conv8_color_bins = nn.Conv2d(
+            256, self.color_bins, 1, stride=1, padding=0, dilation=1)
         ### Softmax ###
-        self.softmax8 = nn.Softmax2d() 
+        self.softmax8 = nn.Softmax2d()
         ### Decoding and upsampling ###
-        self.conv8_ab = nn.Conv2d(self.color_bins, 2, 1, stride=1, padding=0, dilation=1)  
+        self.conv8_ab = nn.Conv2d(
+            self.color_bins, 2, 1, stride=1, padding=0, dilation=1)
 
     def forward(self, in_data):
         ### Conv 1 ###
@@ -111,28 +113,46 @@ class Net(nn.Module):
         self.Zhat = self.softmax8(x)
 
         ### Decoding ###
-        ind = torch.argmax(self.Zhat, dim=1)
-        a,b = torch.from_numpy(self.a_bins[ind]), torch.from_numpy(self.b_bins[ind])
-        a = torch.reshape(a, (a.shape[0],1,a.shape[1], a.shape[2]))  # a has originally shape [samples,H,W], has to be [samples,channels,H,W] 
-        b = torch.reshape(b, (b.shape[0],1,b.shape[1], b.shape[2]))
-        ab = torch.cat((a,b), 1).float()
+        #        ab = self.decode_ab_values()
+        #        lab = self.decode_final_colorful_image(in_data, ab)
+        return x
 
-        print('Network done \n \n')
+    def decode_ab_values(self):
+        ### Decoding ###
+        ind = torch.argmax(self.Zhat, dim=1)
+        a, b = torch.from_numpy(self.a_bins[ind]), torch.from_numpy(
+            self.b_bins[ind])
+        a = torch.reshape(
+            a, (a.shape[0], 1, a.shape[1], a.shape[2])
+        )  # a has originally shape [samples,H,W], has to be [samples,channels,H,W]
+        b = torch.reshape(b, (b.shape[0], 1, b.shape[1], b.shape[2]))
+        ab = torch.cat((a, b), 1).float()
+
+        print('Decoding done \n \n')
         return ab
+
+    def decode_final_colorful_image(self, l, ab):
+        lab = torch.cat((l, ab), 1)
+        print('ab shape: ', ab.shape)
+        print('l shape: ', l.shape)
+        print('lab shape: ', lab.shape)
+        return lab
 
     def loss(self, Z):
         print('loss')
         print(Z.shape)
-        q_star = torch.argmax(Z,1)
+        q_star = torch.argmax(Z, 1)
         print(q_star.shape)
         print(self.rarity_weigths.shape)
-        v = self.rarity_weigths[0,q_star].float()
+        v = self.rarity_weigths[0, q_star].float()
         print(v.shape)
-        l = -1/Z.shape[0]*torch.sum( v*torch.sum(Z*self.Zhat, (0,1)) )
-        return l 
+        l = -1 / Z.shape[0] * torch.sum(v * torch.sum(Z * self.Zhat, (0, 1)))
+        return l
 
     def get_rarity_weights(self, data_dir):
-        self.rarity_weigths = torch.from_numpy(lab_dist.get_rarity_weights(data_dir))  # This guy could be called every batch if we want 
+        self.rarity_weigths = torch.from_numpy(
+            lab_dist.get_rarity_weights(
+                data_dir))  # This guy could be called every batch if we want
         print(type(self.rarity_weigths))
         print(self.rarity_weigths.shape)
 
@@ -141,13 +161,13 @@ if __name__ == '__main__':
 
     net = Net()
     print(len(list(net.parameters())))
-    in_data = torch.rand(1,1,256,256)
+    in_data = torch.rand(1, 1, 256, 256)
     out_data = net(in_data)
-    target = torch.rand(1,2,256,256)
+    target = torch.rand(1, 2, 256, 256)
 
     print(out_data.shape)
     print(target.shape)
-    
+
     criterion = nn.CrossEntropyLoss()
     criterion = nn.MSELoss()
     loss = criterion(out_data, target)

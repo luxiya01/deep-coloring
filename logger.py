@@ -1,19 +1,23 @@
-import tensorflow as tf
-import numpy as np
-import scipy.misc 
-try:
-    from StringIO import StringIO  # Python 2.7
-except ImportError:
-    from io import BytesIO         # Python 3.x
+from tensorboardX import SummaryWriter
+from torch.autograd import Variable
+import torch
 
 
 class Logger(object):
-    
     def __init__(self, log_dir):
         """Create a summary writer logging to log_dir."""
-        self.writer = tf.summary.FileWriter(log_dir)
+        self.writer = SummaryWriter(log_dir)
 
-    def scalar_summary(self, tag, value, step):
+    def scalar_summary(self, tag, value, iteration):
         """Log a scalar variable."""
-        summary = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=value)])
-        self.writer.add_summary(summary, step)
+        self.writer.add_scalar(
+            tag=tag, scalar_value=value, global_step=iteration)
+
+    def add_graph(self, model, image_size):
+        """Log the computation graph of the given model using dummy input data."""
+        dummy_input = torch.rand(2, 1, image_size, image_size)
+        self.writer.add_graph(model, dummy_input, True)
+
+    def add_image(self, tag, image, iteration):
+        """Log an image."""
+        self.writer.add_image(tag, image, iteration)
