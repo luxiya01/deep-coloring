@@ -7,6 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import cv2
+import scipy.ndimage.filters as fi
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
+
 
 
 def read_all_images(path_to_data):
@@ -46,23 +50,6 @@ class Convert2lab:
         return images_lab
 
 
-class Resize:
-    def __init__(self, out_size):
-        assert isinstance(out_size, (int, tuple))
-        self.out_size = out_size
-
-    def __call__(self, image):
-        h, w = image.shape[0:2]
-        if h < self.out_size[0] and w < self.out_size[1]:  # upsample
-            image_out = cv2.resize(
-                image, self.out_size, interpolation=cv2.INTER_LINEAR
-            )  # faster with cv2.INTER_LINEAR prettier with cv2.INTER_CUBIC
-        else:
-            image_out = cv2.resize(
-                image, self.out_size, interpolation=cv2.INTER_AREA)
-        return image_out
-
-
 def ab_histogram_dataset(dataset, plot=False):
     im_ab = dataset[:, :, :, 1:]
     im_ab_vec = np.reshape(
@@ -73,6 +60,7 @@ def ab_histogram_dataset(dataset, plot=False):
         bins=(110 * 2) / 10,
         range=[[-110, 110], [-110, 110]])
     hist_log = np.log(hist / im_ab_vec.shape[0])
+    p = hist/im_ab_vec.shape[0] 
 
     if plot:
         x_mesh, y_mesh = np.meshgrid(xedges, yedges)
@@ -80,9 +68,17 @@ def ab_histogram_dataset(dataset, plot=False):
         plt.figure(1)
         plt.gca().invert_yaxis()
         plt.pcolormesh(x_mesh, y_mesh, hist_log)
-        plt.show()
-    return {'hist': hist, 'hist_log': hist_log}
+        #plt.show()
+    return {'hist': hist, 'hist_log': hist_log, 'p': p}
 
+def rarity_weigths(p, sigma=5, lambda_=0.5):
+    ### p is 2d matrix with probabilities
+    p_tilde = fi.gaussian_filter(p, sigma)
+    w_unm = 1/((1-lambda_) * p_tilde + lambda_/p.size)  # unnormalized and unmasked weigths
+    w_un = np.multiply(w_unm, p>1e-30)  # Delete the weigths that aren't in gamut
+    E_w = np.sum(np.multiply(w_un,p_tilde)) # expected value
+    w = w_un - E_w + 1  # Normalized weigths
+    return w  # w are square matrix, bins that aren't in gamut are removed in get_rarity_weights()
 
 def convert_index_to_ab_value(index):
     helper = lambda x: -105 + 10 * x
@@ -91,8 +87,8 @@ def convert_index_to_ab_value(index):
     return (a, b)
 
 
-def discretize_ab_bins(hist_log):
-    non_zero_indices = np.argwhere(hist_log > -float('inf'))
+def discretize_ab_bins(matrix, threshold):
+    non_zero_indices = np.argwhere(matrix > threshold)
     ab_bins = []
     a_bins = []
     b_bins = []
@@ -109,6 +105,17 @@ def discretize_ab_bins(hist_log):
     }
 
 
+def flatten_rarity_matrix(matrix, threshold):
+    mask = matrix > threshold
+    non_zero_indices = np.argwhere(mask>0)
+    flat = np.zeros((1,np.count_nonzero(mask)))
+    i = 0
+    for ind in non_zero_indices:
+        flat[0,i] = matrix[ind[0], ind[1]]
+        i += 1
+    return flat
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Parse data dir')
     parser.add_argument(
@@ -122,14 +129,58 @@ def get_ab_bins_from_data(data_dir, plot=False):
     color_conversion = Convert2lab()
     images_lab = color_conversion(images)
     histogram_data = ab_histogram_dataset(images_lab, plot)
-    ab_bins = discretize_ab_bins(histogram_data['hist_log'])
+    ab_bins = discretize_ab_bins(histogram_data['hist_log'], -float('inf'))
     return ab_bins
+
+def get_rarity_weights(data_dir, plot=False):
+    data_dir = parse_args()
+    images = read_all_images(data_dir)
+    color_conversion = Convert2lab()
+    images_lab = color_conversion(images)
+    histogram_data = ab_histogram_dataset(images_lab, plot)
+    w = rarity_weigths(histogram_data['p'])
+    w_bins = flatten_rarity_matrix(w, w.min()+1)
+    return w_bins
 
 
 def main():
     data_dir = parse_args()
     get_ab_bins_from_data(data_dir, plot=True)
+    get_rarity_weights(data_dir, plot = False)
 
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+'''
+def test():
+    data_dir = parse_args()
+    images = read_all_images(data_dir)
+    color_conversion = Convert2lab()
+    images_lab = color_conversion(images)
+    histogram_data = ab_histogram_dataset(images_lab, plot=1)
+    print(histogram_data['hist'].shape)
+    w = rarity_weigths(histogram_data['p'])
+    print(w.shape)
+    w_bins = discretize_ab_bins(w, w.min()+1)
+    print('bins')
+    print(w_bins['ab_bins'].shape)
+    fig = plt.figure(30)
+    ax = fig.gca(projection='3d')
+    X = np.arange(w.shape[0])
+    Y = np.arange(w.shape[1])
+    X,Y = np.meshgrid(X,Y)
+    surf = ax.plot_surface(X,Y,w, cmap=cm.coolwarm)
+    plt.figure(10)
+    plt.pcolormesh(w)
+    plt.figure(12)
+    plt.pcolormesh(w>w.min()+1)
+    plt.figure(11)
+    plt.pcolormesh(histogram_data['p']>1e-30)
+    plt.show()
+'''

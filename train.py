@@ -14,9 +14,8 @@ from plot import *
 from logger import Logger
 
 
-
-ab_bins_dict = lab_distribution.get_ab_bins_from_data(
-    '/home/perrito/kth/DD2424/project/images/stl10_binary/train_X.bin')
+data_dir = '/home/perrito/kth/DD2424/project/images/stl10_binary/train_X.bin'
+ab_bins_dict = lab_distribution.get_ab_bins_from_data(data_dir)
 ab_bins, a_bins, b_bins = ab_bins_dict['ab_bins'], ab_bins_dict['a_bins'], ab_bins_dict['b_bins']
 
 transform = transforms.Compose([RGB2LAB(ab_bins), ToTensor()])
@@ -27,8 +26,9 @@ trainloader = torch.utils.data.DataLoader(
     trainset, batch_size=2, shuffle=False, num_workers=2)
 
 cnn = Net(ab_bins_dict)
+cnn.get_rarity_weights(data_dir)
 criterion = cnn.loss
-optimizer = optim.SGD(cnn.parameters(), lr=1e-3, momentum=0)
+optimizer = optim.SGD(cnn.parameters(), lr=1e-2, momentum=0)
 logger = Logger('./log')
 
 for epoch in range(10):

@@ -7,13 +7,15 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import sys  
+import lab_distribution as lab_dist
+
 
 
 
 class Net(nn.Module):
     # Input should be [n, 1, 256, 256] torch tensor
     def __init__(self, ab_bins_dict):
-        super(Net, self).__init__()
+        super(Net, self).__init__()    
         self.a_bins = ab_bins_dict['a_bins']
         self.b_bins = ab_bins_dict['b_bins']
         self.BN_momentum = 1e-3  # Batch normalization momentum
@@ -119,8 +121,20 @@ class Net(nn.Module):
         return ab
 
     def loss(self, Z):
-        l = -torch.sum(Z*self.Zhat)
+        print('loss')
+        print(Z.shape)
+        q_star = torch.argmax(Z,1)
+        print(q_star.shape)
+        print(self.rarity_weigths.shape)
+        v = self.rarity_weigths[0,q_star].float()
+        print(v.shape)
+        l = -1/Z.shape[0]*torch.sum( v*torch.sum(Z*self.Zhat, (0,1)) )
         return l 
+
+    def get_rarity_weights(self, data_dir):
+        self.rarity_weigths = torch.from_numpy(lab_dist.get_rarity_weights(data_dir))  # This guy could be called every batch if we want 
+        print(type(self.rarity_weigths))
+        print(self.rarity_weigths.shape)
 
 
 if __name__ == '__main__':
