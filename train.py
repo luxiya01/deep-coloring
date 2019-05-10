@@ -11,6 +11,7 @@ import lab_distribution
 from custom_transforms import RGB2LAB, ToTensor
 from network import Net
 from plot import *
+from logger import Logger
 
 
 
@@ -23,12 +24,12 @@ transform = transforms.Compose([RGB2LAB(ab_bins), ToTensor()])
 trainset = torchvision.datasets.ImageFolder(
     root='tmp', transform=transform)
 trainloader = torch.utils.data.DataLoader(
-    trainset, batch_size=1, shuffle=False, num_workers=2)
+    trainset, batch_size=2, shuffle=False, num_workers=2)
 
 cnn = Net(ab_bins_dict)
 criterion = cnn.loss
-optimizer = optim.SGD(cnn.parameters(), lr=1e-16, momentum=0.9)
-
+optimizer = optim.SGD(cnn.parameters(), lr=1e-3, momentum=0)
+logger = Logger('./log')
 
 for epoch in range(10):
     for i, data in enumerate(trainloader):
@@ -45,6 +46,12 @@ for epoch in range(10):
         print(loss)
         loss.backward()
         optimizer.step()
+
+        # Logging for tensorboardx
+        info = { 'loss': loss }
+        for tag, value in info.items():
+            logger.scalar_summary(tag, value, i+1)
+
 
 colorized_im = torch.cat((lightness, outputs), 1)
 
