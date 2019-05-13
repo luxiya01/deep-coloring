@@ -12,7 +12,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 
 
-
 def read_all_images(path_to_data):
     """
     :param path_to_data: the file containing the binary images from the STL-10 dataset
@@ -60,7 +59,9 @@ def ab_histogram_dataset(dataset, plot=False):
         bins=(110 * 2) / 10,
         range=[[-110, 110], [-110, 110]])
     hist_log = np.log(hist / im_ab_vec.shape[0])
-    p = hist/im_ab_vec.shape[0] 
+    p = hist / im_ab_vec.shape[0]
+
+    print(im_ab_vec.shape)
 
     if plot:
         x_mesh, y_mesh = np.meshgrid(xedges, yedges)
@@ -71,14 +72,18 @@ def ab_histogram_dataset(dataset, plot=False):
         #plt.show()
     return {'hist': hist, 'hist_log': hist_log, 'p': p}
 
+
 def rarity_weights(p, sigma=5, lambda_=0.5):
     ### p is 2d matrix with probabilities
     p_tilde = fi.gaussian_filter(p, sigma)
-    w_unm = 1/((1-lambda_) * p_tilde + lambda_/p.size)  # unnormalized and unmasked weights
-    w_un = np.multiply(w_unm, p>1e-30)  # Delete the weights that aren't in gamut
-    E_w = np.sum(np.multiply(w_un,p_tilde)) # expected value
+    w_unm = 1 / ((1 - lambda_) * p_tilde + lambda_ / p.size
+                 )  # unnormalized and unmasked weights
+    w_un = np.multiply(w_unm,
+                       p > 1e-30)  # Delete the weights that aren't in gamut
+    E_w = np.sum(np.multiply(w_un, p_tilde))  # expected value
     w = w_un - E_w + 1  # Normalized weights
     return w  # w are square matrix, bins that aren't in gamut are removed in get_rarity_weights()
+
 
 def convert_index_to_ab_value(index):
     helper = lambda x: -105 + 10 * x
@@ -107,11 +112,11 @@ def discretize_ab_bins(matrix, threshold):
 
 def flatten_rarity_matrix(matrix, threshold):
     mask = matrix > threshold
-    non_zero_indices = np.argwhere(mask>0)
-    flat = np.zeros((1,np.count_nonzero(mask)))
+    non_zero_indices = np.argwhere(mask > 0)
+    flat = np.zeros((1, np.count_nonzero(mask)))
     i = 0
     for ind in non_zero_indices:
-        flat[0,i] = matrix[ind[0], ind[1]]
+        flat[0, i] = matrix[ind[0], ind[1]]
         i += 1
     return flat
 
@@ -132,31 +137,26 @@ def get_ab_bins_from_data(data_dir, plot=False):
     ab_bins = discretize_ab_bins(histogram_data['hist_log'], -float('inf'))
     return ab_bins
 
+
 def get_rarity_weights(data_dir, plot=False):
-    data_dir = parse_args()
+    # data_dir = parse_args()
     images = read_all_images(data_dir)
     color_conversion = Convert2lab()
     images_lab = color_conversion(images)
     histogram_data = ab_histogram_dataset(images_lab, plot)
     w = rarity_weights(histogram_data['p'])
-    w_bins = flatten_rarity_matrix(w, w.min()+1)
+    w_bins = flatten_rarity_matrix(w, w.min() + 1)
     return w_bins
 
 
 def main():
     data_dir = parse_args()
     get_ab_bins_from_data(data_dir, plot=True)
-    get_rarity_weights(data_dir, plot = False)
+    get_rarity_weights(data_dir, plot=False)
 
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
 '''
 def test():
     data_dir = parse_args()
