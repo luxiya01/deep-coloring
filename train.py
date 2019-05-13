@@ -14,7 +14,8 @@ from logger import Logger
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 
-data_dir = '/home/perrito/kth/DD2424/project/images/stl10_binary/train_X.bin'
+#data_dir = '/home/perrito/kth/DD2424/project/images/stl10_binary/train_X.bin'
+data_dir = '../data/stl10/data/stl10_binary/train_X.bin'
 ab_bins_dict = lab_distribution.get_ab_bins_from_data(data_dir)
 ab_bins, a_bins, b_bins = ab_bins_dict['ab_bins'], ab_bins_dict[
     'a_bins'], ab_bins_dict['b_bins']
@@ -32,7 +33,7 @@ optimizer = optim.SGD(cnn.parameters(), lr=1e-2, momentum=0.9)
 logger = Logger('./log')
 logger.add_graph(cnn, image_size=96)
 
-for epoch in range(10):
+for epoch in range(1000):
     for i, data in enumerate(trainloader):
         inputs, labels = data
         lightness, z_truth, original = inputs['lightness'], inputs[
@@ -43,32 +44,18 @@ for epoch in range(10):
         ab_outputs = cnn.decode_ab_values()
 
         colorized_im = torch.cat((lightness, ab_outputs), 1)
+        #    plot_image_channels(colorized_im.detach()[0, :, :, :], figure=20)
         loss = criterion(z_truth)
-        print('loss')
         loss.backward()
         optimizer.step()
 
     # Logging loss to tensorboardx
     info = {'loss': loss}
     for tag, value in info.items():
-        print(value.detach())
-        logger.scalar_summary(tag, value.detach(), epoch )
-        logger.scalar_summary('straight line', epoch, epoch )
+        logger.scalar_summary(tag, value, epoch)
 
-    # Displaying Zhat
-    logger.distribution_summary('Zhat', outputs, epoch)
     # Logging images to tensorboardx
-    images = imshow_torch(colorized_im.detach()[0, :, :, :], figure=0)
-    logger.add_image('output_image', torchvision.utils.make_grid(images),
-                     epoch)
-
-colorized_im = torch.cat((lightness, ab_outputs), 1)
-
-images = imshow_torch(colorized_im.detach()[0, :, :, :], figure=1)
-
-#plot_image_channels(colorized_im.detach()[0, :, :, :], figure=2)
-
-imshow_torch(original[0, :, :, :], figure=3)
-#plot_image_channels(original[0, :, :, :], figure=4)
-
-plt.show()
+    for i in range(colorized_im.detach().shape[0]):
+        images = imshow_torch(colorized_im.detach()[i, :, :, :], figure=0)
+        logger.add_image('output_image' + str(i),
+                         torchvision.utils.make_grid(images), epoch)
