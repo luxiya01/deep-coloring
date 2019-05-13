@@ -28,8 +28,6 @@ class RGB2LAB(object):
     def __call__(self, sample):
         sample = np.asarray(sample, dtype=np.float32) / 255
 
-        print('RGB2LAB is called!')
-
         # Image read in by PIL follows RGB convension, therefore the conversion
         # is RGB2LAB
         lab_image = cv2.cvtColor(sample, cv2.COLOR_RGB2LAB)
@@ -49,22 +47,13 @@ class RGB2LAB(object):
 
         num_pixels = w * h
         z_truth_reshaped = np.zeros((self.num_bins, num_pixels))
-        z_truth_reshaped[indices,
-                         np.arange(num_pixels).
-                         reshape(num_pixels, 1)] = norm.pdf(distances)
+        z_truth_reshaped[
+            indices, np.arange(num_pixels).reshape(num_pixels, 1)] = norm.pdf(
+                distances, scale=5)
         z_truth_reshaped = z_truth_reshaped.reshape((self.num_bins, w, h))
 
-        #       for i in range(w):
-        #           for j in range(h):
-        #               pixel_index = i * w + j
-        #               assert (ab[i, j] == ab_reshaped[pixel_index]).all()
-        #
-        #               for nbr_idx, distance in zip(indices[pixel_index],
-        #                                            distances[pixel_index]):
-        #                   z_truth[nbr_idx, i, j] = norm.pdf(distance)
-        #               # self._plot(true_ab, z_truth)
-        #       assert (z_truth == z_truth_reshaped).all()
         return {
+            'distances': distances,
             'lightness': l.reshape(1, w, h).astype(np.float32),
             'z_truth': z_truth_reshaped.astype(np.float32),
             'original_lab_image': lab_image.astype(np.float32)
