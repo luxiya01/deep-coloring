@@ -71,13 +71,13 @@ def ab_histogram_dataset(dataset, plot=False):
         #plt.show()
     return {'hist': hist, 'hist_log': hist_log, 'p': p}
 
-def rarity_weigths(p, sigma=5, lambda_=0.5):
+def rarity_weights(p, sigma=5, lambda_=0.5):
     ### p is 2d matrix with probabilities
     p_tilde = fi.gaussian_filter(p, sigma)
-    w_unm = 1/((1-lambda_) * p_tilde + lambda_/p.size)  # unnormalized and unmasked weigths
-    w_un = np.multiply(w_unm, p>1e-30)  # Delete the weigths that aren't in gamut
+    w_unm = 1/((1-lambda_) * p_tilde + lambda_/p.size)  # unnormalized and unmasked weights
+    w_un = np.multiply(w_unm, p>1e-30)  # Delete the weights that aren't in gamut
     E_w = np.sum(np.multiply(w_un,p_tilde)) # expected value
-    w = w_un - E_w + 1  # Normalized weigths
+    w = w_un - E_w + 1  # Normalized weights
     return w  # w are square matrix, bins that aren't in gamut are removed in get_rarity_weights()
 
 def convert_index_to_ab_value(index):
@@ -138,7 +138,7 @@ def get_rarity_weights(data_dir, plot=False):
     color_conversion = Convert2lab()
     images_lab = color_conversion(images)
     histogram_data = ab_histogram_dataset(images_lab, plot)
-    w = rarity_weigths(histogram_data['p'])
+    w = rarity_weights(histogram_data['p'])
     w_bins = flatten_rarity_matrix(w, w.min()+1)
     return w_bins
 
@@ -165,7 +165,7 @@ def test():
     images_lab = color_conversion(images)
     histogram_data = ab_histogram_dataset(images_lab, plot=1)
     print(histogram_data['hist'].shape)
-    w = rarity_weigths(histogram_data['p'])
+    w = rarity_weights(histogram_data['p'])
     print(w.shape)
     w_bins = discretize_ab_bins(w, w.min()+1)
     print('bins')

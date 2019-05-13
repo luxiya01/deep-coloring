@@ -32,7 +32,7 @@ optimizer = optim.SGD(cnn.parameters(), lr=1e-2, momentum=0)
 logger = Logger('./log')
 logger.add_graph(cnn, image_size=96)
 
-for epoch in range(1):
+for epoch in range(10):
     for i, data in enumerate(trainloader):
         inputs, labels = data
         lightness, z_truth, original = inputs['lightness'], inputs[
@@ -71,4 +71,4 @@ plot_image_channels(colorized_im.detach()[0, :, :, :], figure=2)
 imshow_torch(original[0, :, :, :], figure=3)
 plot_image_channels(original[0, :, :, :], figure=4)
 
-# plt.show()
+plt.show()

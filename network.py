@@ -143,18 +143,16 @@ class Net(nn.Module):
         print(Z.shape)
         q_star = torch.argmax(Z, 1)
         print(q_star.shape)
-        print(self.rarity_weigths.shape)
-        v = self.rarity_weigths[0, q_star].float()
+        print(self.rarity_weights.shape)
+        v = self.rarity_weights[0, q_star].float()
         print(v.shape)
         l = -1 / Z.shape[0] * torch.sum(v * torch.sum(Z * self.Zhat, (0, 1)))
         return l
 
     def get_rarity_weights(self, data_dir):
-        self.rarity_weigths = torch.from_numpy(
+        self.rarity_weights = torch.from_numpy(
             lab_dist.get_rarity_weights(
                 data_dir))  # This guy could be called every batch if we want
-        print(type(self.rarity_weigths))
-        print(self.rarity_weigths.shape)
 
 
 if __name__ == '__main__':
