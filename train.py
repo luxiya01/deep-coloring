@@ -22,18 +22,21 @@ ab_bins, a_bins, b_bins = ab_bins_dict['ab_bins'], ab_bins_dict[
 
 transform = transforms.Compose([RGB2LAB(ab_bins), ToTensor()])
 
-trainset = torchvision.datasets.ImageFolder(root='tmp', transform=transform)
+trainset = torchvision.datasets.ImageFolder(
+    root='tmp_red_bird', transform=transform)
 trainloader = torch.utils.data.DataLoader(
-    trainset, batch_size=2, shuffle=False, num_workers=2)
+    trainset, batch_size=1, shuffle=False, num_workers=2)
 
 cnn = Net(ab_bins_dict)
 cnn.get_rarity_weights(data_dir)
 criterion = cnn.loss
-optimizer = optim.SGD(cnn.parameters(), lr=1e-2, momentum=0.9)
-logger = Logger('./log')
+optimizer = optim.Adam(cnn.parameters(), weight_decay=.001)
+# optimizer = optim.SGD(cnn.parameters(), lr=1e-2, momentum=0.9)
+logger = Logger('./log_1_image_red_bird_adam_optim')
 logger.add_graph(cnn, image_size=96)
 
-for epoch in range(1000):
+index = 0
+for epoch in range(400):
     for i, data in enumerate(trainloader):
         inputs, labels = data
         lightness, z_truth, original = inputs['lightness'], inputs[
@@ -49,13 +52,14 @@ for epoch in range(1000):
         loss.backward()
         optimizer.step()
 
-    # Logging loss to tensorboardx
-    info = {'loss': loss}
-    for tag, value in info.items():
-        logger.scalar_summary(tag, value, epoch)
+        # Logging loss to tensorboardx
+        info = {'loss': loss}
+        for tag, value in info.items():
+            logger.scalar_summary(tag, value, index)
 
-    # Logging images to tensorboardx
-    for i in range(colorized_im.detach().shape[0]):
-        images = imshow_torch(colorized_im.detach()[i, :, :, :], figure=0)
-        logger.add_image('output_image' + str(i),
-                         torchvision.utils.make_grid(images), epoch)
+        # Logging images to tensorboardx
+        for j in range(colorized_im.detach().shape[0]):
+            images = imshow_torch(colorized_im.detach()[j, :, :, :], figure=0)
+            logger.add_image('output_image' + str(i) + '_' + str(j),
+                             torchvision.utils.make_grid(images), index)
+        index += 1
