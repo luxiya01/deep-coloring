@@ -21,3 +21,7 @@ class Logger(object):
     def add_image(self, tag, image, iteration):
         """Log an image."""
         self.writer.add_image(tag, image, iteration)
+
+    def add_histogram(self, tag, array, iteration):
+        """Log a histogram"""
+        self.writer.add_histogram(tag, array, iteration)
