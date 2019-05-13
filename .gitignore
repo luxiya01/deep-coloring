@@ -1,3 +1,9 @@
+# Ignore tensorboard log directories
+log*
+
+# Ignore tmp files and directories
+*tmp*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
