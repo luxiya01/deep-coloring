@@ -6,6 +6,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
 import sys
 import lab_distribution as lab_dist
 
@@ -115,7 +117,7 @@ class Net(nn.Module):
         ### Decoding ###
         #        ab = self.decode_ab_values()
         #        lab = self.decode_final_colorful_image(in_data, ab)
-        return x
+        return self.Zhat
 
     def decode_ab_values(self):
         ### Decoding ###
@@ -139,14 +141,10 @@ class Net(nn.Module):
         return lab
 
     def loss(self, Z):
-        print('loss')
-        print(Z.shape)
         q_star = torch.argmax(Z, 1)
-        print(q_star.shape)
-        print(self.rarity_weights.shape)
         v = self.rarity_weights[0, q_star].float()
-        print(v.shape)
-        l = -1 / Z.shape[0] * torch.sum(v * torch.sum(Z * self.Zhat, (0, 1)))
+        l = -1 / Z.shape[0] * torch.sum(v * torch.sum(Z * torch.log(self.Zhat + 1e-30), (1)))
+        print(self.Zhat.shape)
         return l
 
     def get_rarity_weights(self, data_dir):
