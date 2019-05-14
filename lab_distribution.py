@@ -132,8 +132,8 @@ def get_ab_bins_from_data(data_dir, plot=False):
     ab_bins = discretize_ab_bins(histogram_data['hist_log'], -float('inf'))
     return ab_bins
 
+
 def get_rarity_weights(data_dir, plot=False):
-    data_dir = parse_args()
     images = read_all_images(data_dir)
     color_conversion = Convert2lab()
     images_lab = color_conversion(images)
@@ -152,35 +152,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-
-
-
-
-
-'''
-def test():
-    data_dir = parse_args()
-    images = read_all_images(data_dir)
-    color_conversion = Convert2lab()
-    images_lab = color_conversion(images)
-    histogram_data = ab_histogram_dataset(images_lab, plot=1)
-    print(histogram_data['hist'].shape)
-    w = rarity_weights(histogram_data['p'])
-    print(w.shape)
-    w_bins = discretize_ab_bins(w, w.min()+1)
-    print('bins')
-    print(w_bins['ab_bins'].shape)
-    fig = plt.figure(30)
-    ax = fig.gca(projection='3d')
-    X = np.arange(w.shape[0])
-    Y = np.arange(w.shape[1])
-    X,Y = np.meshgrid(X,Y)
-    surf = ax.plot_surface(X,Y,w, cmap=cm.coolwarm)
-    plt.figure(10)
-    plt.pcolormesh(w)
-    plt.figure(12)
-    plt.pcolormesh(w>w.min()+1)
-    plt.figure(11)
-    plt.pcolormesh(histogram_data['p']>1e-30)
-    plt.show()
-'''

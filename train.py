@@ -28,11 +28,11 @@ trainloader = torch.utils.data.DataLoader(
 cnn = Net(ab_bins_dict)
 cnn.get_rarity_weights(data_dir)
 criterion = cnn.loss
-optimizer = optim.SGD(cnn.parameters(), lr=1e-2, momentum=0.9)
+optimizer = optim.SGD(cnn.parameters(), lr=1e-4, momentum=0.9)
 logger = Logger('./log')
 logger.add_graph(cnn, image_size=96)
 
-for epoch in range(10):
+for epoch in range(1):
     for i, data in enumerate(trainloader):
         inputs, labels = data
         lightness, z_truth, original = inputs['lightness'], inputs[
@@ -53,16 +53,21 @@ for epoch in range(10):
     for tag, value in info.items():
         print(value.detach())
         logger.scalar_summary(tag, value.detach(), epoch )
-        logger.scalar_summary('straight line', epoch, epoch )
 
     # Displaying Zhat
-    logger.distribution_summary('Zhat', outputs, epoch)
+    logger.histogram_summary('Zhat', outputs.detach(), epoch)
+
     # Logging images to tensorboardx
     images = imshow_torch(colorized_im.detach()[0, :, :, :], figure=0)
     logger.add_image('output_image', torchvision.utils.make_grid(images),
                      epoch)
 
+print('parameter exploration')
+print(type(cnn.parameters()))
+print(type(cnn.parameters().data))
+
 colorized_im = torch.cat((lightness, ab_outputs), 1)
+logger.histogram_summary('img', lightness, 0)
 
 images = imshow_torch(colorized_im.detach()[0, :, :, :], figure=1)
 
