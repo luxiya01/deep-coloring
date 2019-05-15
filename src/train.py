@@ -189,7 +189,9 @@ def train(pretrained_model_path, bin_path, train_dir, eval_dir, eval_every_n,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers)
-
+    
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    cnn = cnn.to(device)
     # Train!
     for epoch in range(pretrained_epoch, pretrained_epoch + num_epochs, 1):
         print('epoch = ', epoch)
@@ -200,6 +202,7 @@ def train(pretrained_model_path, bin_path, train_dir, eval_dir, eval_every_n,
                 'z_truth'], inputs['original_lab_image']
 
             optimizer.zero_grad()
+            lightness = lightness.to(device)
             outputs = cnn(lightness)
 
             loss = cnn.loss(z_truth)
