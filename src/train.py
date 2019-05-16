@@ -1,3 +1,5 @@
+import os
+import numpy as np
 import torch
 import torch.optim as optim
 import torchvision
@@ -49,6 +51,7 @@ def log_training_loss_and_image(logger, loss, colorized_im, epoch):
 def log_eval(model, optimizer, evalloader, logger, epoch, prefix='eval'):
     index = 0
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    losses = []
     for i, data in enumerate(evalloader):
         inputs, _ = data
         lightness, z_truth, original = inputs['lightness'], inputs[
@@ -61,34 +64,38 @@ def log_eval(model, optimizer, evalloader, logger, epoch, prefix='eval'):
         optimizer.zero_grad()
         _ = model(lightness)
         loss = model.loss(z_truth)
+        losses.append(loss)
 
-        ab_outputs = model.decode_ab_values()
-        colorized_im = torch.cat((lightness.cpu(), ab_outputs.cpu()), 1)
+        # Log images to tensorboardx if prefix is not eval, i.e. not training
+        if prefix != 'eval':
+            ab_outputs = model.decode_ab_values()
+            colorized_im = torch.cat((lightness, ab_outputs), 1)
 
-        # Log loss to tensorboardx
-        logger.scalar_summary(prefix + '_loss_epoch_' + str(epoch), loss, i)
+            for j in range(colorized_im.detach().shape[0]):
 
-        # Log images to tensorboardx
-        for j in range(colorized_im.detach().shape[0]):
-
-            images = plot.imshow_torch(
-                colorized_im.detach()[j, :, :, :], figure=0)
-            if prefix == 'eval':
-                logger.add_image(prefix + '_' + str(i) + '_' + str(j),
-                                 torchvision.utils.make_grid(images), epoch)
-            else:
+                images = plot.imshow_torch(
+                    colorized_im.detach()[j, :, :, :], figure=0)
                 logger.add_image(prefix + '_epoch_' + str(epoch),
                                  torchvision.utils.make_grid(images), index)
-            index += 1
+                index += 1
+
+    # Log average loss to tensorboardx
+    losses = torch.FloatTensor(losses)
+    logger.scalar_summary(prefix + '_average_loss', losses.mean(), epoch)
+    logger.histogram_summary(prefix + '_loss_hist', losses, epoch)
 
 
 def save_model_checkpoints(epoch, model, optimizer, loss, path):
+    checkpoint_path = os.path.join(
+        os.path.join(os.getcwd(), path), 'checkpoint_' + str(epoch) + '.pth')
+    print(checkpoint_path)
+
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss
-    }, path + '_' + str(epoch))
+    }, checkpoint_path)
 
 
 def create_model(bin_path,
@@ -196,7 +203,7 @@ def train(pretrained_model_path, bin_path, train_dir, eval_dir, eval_every_n,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers)
-    
+
     # Train!
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     individual_losses = []
@@ -228,8 +235,8 @@ def train(pretrained_model_path, bin_path, train_dir, eval_dir, eval_every_n,
         if epoch % eval_every_n == 0:
             log_eval(cnn, optimizer, evalloader, logger, epoch)
 
-        # Store model checkpoint
-        if epoch % checkpoint_every_n == 0:
+        # Store model checkpoint every n epochs and at the last epoch
+        if epoch % checkpoint_every_n == 0 or epoch == pretrained_epoch + num_epochs - 1:
             save_model_checkpoints(epoch, cnn, optimizer, loss, checkpoint_dir)
 
         individual_losses = []
