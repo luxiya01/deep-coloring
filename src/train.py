@@ -124,7 +124,6 @@ def create_model(pretrained_model_path,
     cnn = Net(bins_dict)
     cnn.set_rarity_weights(bins_dict['w_bins'])
 
-    print('betas: ', betas)
 
     # Define criterion and optimizer for gradient descent
     optimizer = optim.Adam(
@@ -240,7 +239,7 @@ def train(pretrained_model_path,
 
     # Train!
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    individual_losses = np.zeros(len(tainloader.dataset))
+    individual_losses = np.zeros(max(1,round(len(trainloader.dataset)/batch_size)))
     for epoch in range(pretrained_epoch, pretrained_epoch + num_epochs, 1):
         print('epoch = ', epoch)
         for i, data in enumerate(trainloader):
@@ -277,5 +276,3 @@ def train(pretrained_model_path,
         # Store model checkpoint every n epochs and at the last epoch
         if epoch % checkpoint_every_n == 0 or epoch == pretrained_epoch + num_epochs - 1:
             save_model_checkpoints(epoch, cnn, optimizer, loss, checkpoint_dir)
-        print(i)
-        print(individual_losses.shape)
