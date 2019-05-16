@@ -10,11 +10,18 @@ from network import Net
 from logger import Logger
 
 
-def get_ab_bins_dict(bin_path):
+def get_prior_bins_dict(bin_path, outfile):
     """Given the path to the .bin file for training data,
-    returns a dictionary with discretized color space bins.
-    Keys in the dictionary: ab_bins, a_bins, b_bins."""
-    return lab_dist.get_ab_bins_from_data(bin_path)
+    returns a dictionary with discretized color space bins
+    and probability distributions. Also store the output in
+    a .npz file.
+    Keys in the dictionary: ab_bins, a_bins, b_bins, w_bins."""
+    return lab_dist.get_and_store_ab_bins_and_rarity_weights(
+        data_dir=bin_path, outfile=outfile)
+
+
+def read_prior_bins_dict(npz_path):
+    return np.load(npz_path)
 
 
 def get_transforms(ab_bins):
@@ -60,7 +67,7 @@ def log_eval(model, optimizer, evalloader, logger, epoch, prefix='eval'):
         # Cuda conversion
         lightness = lightness.to(device)
         z_truth = z_truth.to(device)
-        
+
         optimizer.zero_grad()
         _ = model(lightness)
         loss = model.loss(z_truth)
@@ -171,10 +178,23 @@ def test(pretrained_model_path, bin_path, test_dir, log_dir, batch_size,
         cnn, optimizer, testloader, logger, pretrained_epoch, prefix='test')
 
 
-def train(pretrained_model_path, bin_path, train_dir, eval_dir, eval_every_n,
-          log_dir, log_every_n, checkpoint_dir, checkpoint_every_n, num_epochs,
-          batch_size, num_workers, learning_rate, betas, epsilon,
-          weight_decay):
+def train(pretrained_model_path,
+          train_dir,
+          eval_dir,
+          eval_every_n,
+          log_dir,
+          log_every_n,
+          checkpoint_dir,
+          checkpoint_every_n,
+          num_epochs,
+          batch_size,
+          num_workers,
+          learning_rate,
+          betas,
+          epsilon,
+          weight_decay,
+          bin_path='',
+          npz_path=''):
     # Create model
     ab_bins_dict = get_ab_bins_dict(bin_path)
     model = create_model(
@@ -211,8 +231,9 @@ def train(pretrained_model_path, bin_path, train_dir, eval_dir, eval_every_n,
         print('epoch = ', epoch)
         for i, data in enumerate(trainloader):
             inputs, labels = data
-            lightness, z_truth, original = inputs['lightness'].to(device), inputs[
-                'z_truth'].to(device), inputs['original_lab_image'].to(device)
+            lightness, z_truth, original = inputs['lightness'].to(
+                device), inputs['z_truth'].to(
+                    device), inputs['original_lab_image'].to(device)
 
             optimizer.zero_grad()
 
@@ -227,9 +248,13 @@ def train(pretrained_model_path, bin_path, train_dir, eval_dir, eval_every_n,
         if epoch % log_every_n == 0:
             ab_outputs = cnn.decode_ab_values()
             colorized_im = torch.cat((lightness, ab_outputs), 1)
-            log_training_loss_and_image(logger, loss.cpu(), colorized_im.cpu(), epoch)
-            logger.histogram_summary('Individual training loss', torch.FloatTensor(individual_losses).cpu() , epoch, bins=100)
-            
+            log_training_loss_and_image(logger, loss.cpu(), colorized_im.cpu(),
+                                        epoch)
+            logger.histogram_summary(
+                'Individual training loss',
+                torch.FloatTensor(individual_losses).cpu(),
+                epoch,
+                bins=100)
 
         # Log evaluation results to tensorboardx
         if epoch % eval_every_n == 0:
