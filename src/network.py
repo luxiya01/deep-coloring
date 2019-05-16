@@ -187,7 +187,7 @@ class Net(nn.Module):
 #                data_dir))  # This guy could be called every batch if we want
 
     def set_rarity_weights(self, rarity_weights):
-        self.rarity_weights = rarity_weights
+        self.rarity_weights = torch.from_numpy(rarity_weights)
 
 if __name__ == '__main__':
 
