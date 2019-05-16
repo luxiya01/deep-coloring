@@ -136,9 +136,10 @@ def _add_train_subparser(subparsers):
     train.add_argument(
         '-betas',
         '--betas',
-        default=(.9, .999),
+        nargs=2,
+        default=[.9, .999],
         help='Betas used by Adam optimizer',
-        type=tuple)
+        type=float)
 
     train.add_argument(
         '-eps',
