@@ -11,12 +11,14 @@ from matplotlib import cm
 import sys
 import lab_distribution as lab_dist
 
+
 class Net(nn.Module):
     # Input should be [n, 1, 256, 256] torch tensor
     def __init__(self, ab_bins_dict):
 
         super(Net, self).__init__()
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda:0' if torch.cuda.
+                                   is_available() else 'cpu')
         self.a_bins = torch.from_numpy(ab_bins_dict['a_bins']).to(self.device)
         self.b_bins = torch.from_numpy(ab_bins_dict['b_bins']).to(self.device)
         self.BN_momentum = 1e-3  # Batch normalization momentum
@@ -178,11 +180,14 @@ class Net(nn.Module):
         #       print('l', l, l.shape)
         return l
 
-    def get_rarity_weights(self, data_dir):
-        self.rarity_weights = torch.from_numpy(
-            lab_dist.get_rarity_weights(
-                data_dir))  # This guy could be called every batch if we want
 
+#    def get_rarity_weights(self, data_dir):
+#        self.rarity_weights = torch.from_numpy(
+#            lab_dist.get_rarity_weights(
+#                data_dir))  # This guy could be called every batch if we want
+
+    def set_rarity_weights(self, rarity_weights):
+        self.rarity_weights = rarity_weights
 
 if __name__ == '__main__':
 

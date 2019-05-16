@@ -56,7 +56,7 @@ def _add_mutually_exclusive_bins_group(parser):
         type=str)
     group.add_argument(
         '-npz',
-        '--npz-file-path',
+        '--npz-path',
         help=(
             'Path to the .npz file containing a dictionary of numpy arrays.'
             'Keys in the dictionary: a_bins, b_bins, ab_bins and w_bins.'

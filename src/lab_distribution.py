@@ -168,6 +168,7 @@ def get_and_store_ab_bins_and_rarity_weights(data_dir, outfile, plot=False):
         a_bins=bins['a_bins'],
         b_bins=bins['b_bins'],
         w_bins=bins['w_bins'])
+    return bins
 
 
 def main():

@@ -105,18 +105,26 @@ def save_model_checkpoints(epoch, model, optimizer, loss, path):
     }, checkpoint_path)
 
 
-def create_model(bin_path,
-                 ab_bins_dict,
-                 pretrained_model_path,
+def create_model(pretrained_model_path,
                  log_dir,
+                 bin_path='',
+                 npz_path='',
                  learning_rate=.001,
                  betas=(.9, .999),
                  epsilon=1e-8,
                  weight_decay=.001,
                  mode='train'):
+    if bin_path != '':
+        bins_dict = get_prior_bins_dict(bin_path,
+                                        'prior_distribution_' + mode + '.npz')
+    else:
+        bins_dict = read_prior_bins_dict(npz_path)
+
     # Create network
-    cnn = Net(ab_bins_dict)
-    cnn.get_rarity_weights(bin_path)
+    cnn = Net(bins_dict)
+    cnn.set_rarity_weights(bins_dict['w_bins'])
+
+    print('betas: ', betas)
 
     # Define criterion and optimizer for gradient descent
     optimizer = optim.Adam(
@@ -149,24 +157,30 @@ def create_model(bin_path,
         'model': cnn,
         'optimizer': optimizer,
         'pretrained_epoch': pretrained_epoch,
-        'logger': logger
+        'logger': logger,
+        'bins_dict': bins_dict
     }
 
 
-def test(pretrained_model_path, bin_path, test_dir, log_dir, batch_size,
-         num_workers):
+def test(pretrained_model_path,
+         test_dir,
+         log_dir,
+         batch_size,
+         num_workers,
+         bin_path='',
+         npz_path=''):
     # Create model
-    ab_bins_dict = get_ab_bins_dict(bin_path)
     model = create_model(
         bin_path=bin_path,
-        ab_bins_dict=ab_bins_dict,
+        npz_path=npz_path,
         pretrained_model_path=pretrained_model_path,
         log_dir=log_dir)
-    cnn, optimizer, pretrained_epoch, logger = model['model'], model[
-        'optimizer'], model['pretrained_epoch'], model['logger']
+    cnn, optimizer, pretrained_epoch, logger, bins_dict = model[
+        'model'], model['optimizer'], model['pretrained_epoch'], model[
+            'logger'], model['bins_dict']
 
     # Get training and test loaders
-    transform = get_transforms(ab_bins_dict['ab_bins'])
+    transform = get_transforms(bins_dict['ab_bins'])
     testloader = get_dataloader(
         root=test_dir,
         transform=transform,
@@ -196,21 +210,21 @@ def train(pretrained_model_path,
           bin_path='',
           npz_path=''):
     # Create model
-    ab_bins_dict = get_ab_bins_dict(bin_path)
     model = create_model(
         bin_path=bin_path,
-        ab_bins_dict=ab_bins_dict,
+        npz_path=npz_path,
         pretrained_model_path=pretrained_model_path,
         log_dir=log_dir,
         learning_rate=learning_rate,
         betas=betas,
         epsilon=epsilon,
         weight_decay=weight_decay)
-    cnn, optimizer, pretrained_epoch, logger = model['model'], model[
-        'optimizer'], model['pretrained_epoch'], model['logger']
+    cnn, optimizer, pretrained_epoch, logger, bins_dict = model[
+        'model'], model['optimizer'], model['pretrained_epoch'], model[
+            'logger'], model['bins_dict']
 
     # Get training and test loaders
-    transform = get_transforms(ab_bins_dict['ab_bins'])
+    transform = get_transforms(bins_dict['ab_bins'])
     trainloader = get_dataloader(
         root=train_dir,
         transform=transform,
