@@ -48,17 +48,22 @@ def log_training_loss_and_image(logger, loss, colorized_im, epoch):
 
 def log_eval(model, optimizer, evalloader, logger, epoch, prefix='eval'):
     index = 0
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     for i, data in enumerate(evalloader):
         inputs, _ = data
         lightness, z_truth, original = inputs['lightness'], inputs[
             'z_truth'], inputs['original_lab_image']
 
+        # Cuda conversion
+        lightness = lightness.to(device)
+        z_truth = z_truth.to(device)
+        
         optimizer.zero_grad()
         _ = model(lightness)
         loss = model.loss(z_truth)
 
         ab_outputs = model.decode_ab_values()
-        colorized_im = torch.cat((lightness, ab_outputs), 1)
+        colorized_im = torch.cat((lightness.cpu(), ab_outputs.cpu()), 1)
 
         # Log loss to tensorboardx
         logger.scalar_summary(prefix + '_loss_epoch_' + str(epoch), loss, i)
@@ -120,10 +125,12 @@ def create_model(bin_path,
             cnn.train()
         else:
             cnn.eval()
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    cnn = cnn.to(device)
 
     # Log computation graph to tensorboardx
     logger = get_logger(log_dir)
-    logger.add_graph(cnn, image_size=96)
+    # logger.add_graph(cnn, image_size=96)
     return {
         'model': cnn,
         'optimizer': optimizer,
@@ -190,22 +197,22 @@ def train(pretrained_model_path, bin_path, train_dir, eval_dir, eval_every_n,
         shuffle=False,
         num_workers=num_workers)
     
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    cnn = cnn.to(device)
     # Train!
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    individual_losses = []
     for epoch in range(pretrained_epoch, pretrained_epoch + num_epochs, 1):
         print('epoch = ', epoch)
         for i, data in enumerate(trainloader):
-            print('i = ', i)
             inputs, labels = data
-            lightness, z_truth, original = inputs['lightness'], inputs[
-                'z_truth'], inputs['original_lab_image']
+            lightness, z_truth, original = inputs['lightness'].to(device), inputs[
+                'z_truth'].to(device), inputs['original_lab_image'].to(device)
 
             optimizer.zero_grad()
-            lightness = lightness.to(device)
+
             outputs = cnn(lightness)
 
             loss = cnn.loss(z_truth)
+            individual_losses.append(loss)
             loss.backward()
             optimizer.step()
 
@@ -213,7 +220,9 @@ def train(pretrained_model_path, bin_path, train_dir, eval_dir, eval_every_n,
         if epoch % log_every_n == 0:
             ab_outputs = cnn.decode_ab_values()
             colorized_im = torch.cat((lightness, ab_outputs), 1)
-            log_training_loss_and_image(logger, loss, colorized_im, epoch)
+            log_training_loss_and_image(logger, loss.cpu(), colorized_im.cpu(), epoch)
+            logger.histogram_summary('Individual training loss', torch.FloatTensor(individual_losses).cpu() , epoch, bins=100)
+            
 
         # Log evaluation results to tensorboardx
         if epoch % eval_every_n == 0:
@@ -222,3 +231,5 @@ def train(pretrained_model_path, bin_path, train_dir, eval_dir, eval_every_n,
         # Store model checkpoint
         if epoch % checkpoint_every_n == 0:
             save_model_checkpoints(epoch, cnn, optimizer, loss, checkpoint_dir)
+
+        individual_losses = []

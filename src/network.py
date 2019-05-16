@@ -11,13 +11,14 @@ from matplotlib import cm
 import sys
 import lab_distribution as lab_dist
 
-
 class Net(nn.Module):
     # Input should be [n, 1, 256, 256] torch tensor
     def __init__(self, ab_bins_dict):
+
         super(Net, self).__init__()
-        self.a_bins = ab_bins_dict['a_bins']
-        self.b_bins = ab_bins_dict['b_bins']
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.a_bins = torch.from_numpy(ab_bins_dict['a_bins']).to(self.device)
+        self.b_bins = torch.from_numpy(ab_bins_dict['b_bins']).to(self.device)
         self.BN_momentum = 1e-3  # Batch normalization momentum
         self.color_bins = 225  # Number of color bins in ab colorspace
         # nn.Conv2d(a,b,c);  a input image channel, b output channels, cxc square convolution kernel
@@ -122,27 +123,23 @@ class Net(nn.Module):
     def decode_ab_values(self):
         ### Decoding ###
         ind = torch.argmax(self.Zhat, dim=1)
-        a, b = torch.from_numpy(self.a_bins[ind]), torch.from_numpy(
-            self.b_bins[ind])
+        a, b = self.a_bins[ind], self.b_bins[ind]
         a = torch.reshape(
             a, (a.shape[0], 1, a.shape[1], a.shape[2])
         )  # a has originally shape [samples,H,W], has to be [samples,channels,H,W]
         b = torch.reshape(b, (b.shape[0], 1, b.shape[1], b.shape[2]))
         ab = torch.cat((a, b), 1).float()
 
-        print('Decoding done \n \n')
         return ab
 
     def decode_final_colorful_image(self, l, ab):
         lab = torch.cat((l, ab), 1)
-        print('ab shape: ', ab.shape)
-        print('l shape: ', l.shape)
-        print('lab shape: ', lab.shape)
         return lab
 
     def loss(self, Z):
         q_star = torch.argmax(Z, 1)
         v = self.rarity_weights[0, q_star].float()
+        v = v.to(self.device)
         #        l = -1 / Z.shape[0] * torch.sum(v * torch.sum(Z * torch.log(self.Zhat + 1e-30), (1)))
 
         #       print('q_star: ', q_star, q_star.shape)

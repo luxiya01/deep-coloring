@@ -37,7 +37,7 @@ def get_argparser():
     parser.add_argument(
         '-b',
         '--batch-size',
-        default=4,
+        default=10,
         help='Batch size used for training',
         type=int)
 
@@ -79,21 +79,21 @@ def _add_train_subparser(subparsers):
     train.add_argument(
         '-en',
         '--eval-every-n',
-        default=100,
+        default=500,
         help='Evaluate network performance on validation data every n epochs',
         type=int)
 
     train.add_argument(
         '-e',
         '--num-epochs',
-        default=400,
+        default=3000,
         help='Number of epochs to train',
         type=int)
 
     train.add_argument(
         '-log-every-n',
         '--log-every-n',
-        default=10,
+        default=80,
         help='Save log info every n epochs',
         type=int)
 
@@ -107,7 +107,7 @@ def _add_train_subparser(subparsers):
     train.add_argument(
         '-c',
         '--checkpoint-every-n',
-        default=100,
+        default=400,
         help='Save model checkpoint every n epochs',
         type=int)
 
