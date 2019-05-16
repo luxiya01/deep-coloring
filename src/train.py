@@ -226,7 +226,7 @@ def train(pretrained_model_path,
 
     # Train!
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    individual_losses = []
+    individual_losses = np.zeros(len(tainloader.dataset))
     for epoch in range(pretrained_epoch, pretrained_epoch + num_epochs, 1):
         print('epoch = ', epoch)
         for i, data in enumerate(trainloader):
@@ -240,7 +240,7 @@ def train(pretrained_model_path,
             outputs = cnn(lightness)
 
             loss = cnn.loss(z_truth)
-            individual_losses.append(loss)
+            individual_losses[i] = loss
             loss.backward()
             optimizer.step()
 
@@ -248,7 +248,7 @@ def train(pretrained_model_path,
         if epoch % log_every_n == 0:
             ab_outputs = cnn.decode_ab_values()
             colorized_im = torch.cat((lightness, ab_outputs), 1)
-            log_training_loss_and_image(logger, loss.cpu(), colorized_im.cpu(),
+            log_training_loss_and_image(logger, np.mean(individual_loss).cpu(), colorized_im.cpu(),
                                         epoch)
             logger.histogram_summary(
                 'Individual training loss',
@@ -263,5 +263,5 @@ def train(pretrained_model_path,
         # Store model checkpoint every n epochs and at the last epoch
         if epoch % checkpoint_every_n == 0 or epoch == pretrained_epoch + num_epochs - 1:
             save_model_checkpoints(epoch, cnn, optimizer, loss, checkpoint_dir)
-
-        individual_losses = []
+        print(i)
+        print(individual_losses.shape)
