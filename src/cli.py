@@ -1,6 +1,7 @@
 import sys
 import train
 from argparse import ArgumentParser
+from functools import partial
 
 SUB = 'subparser'
 TRAIN = 'train'
@@ -11,6 +12,8 @@ def get_argparser():
     parser = ArgumentParser('Train or evaluate colorization CNN')
 
     _add_subparser(parser)
+
+    _add_mutually_exclusive_bins_group(parser)
 
     parser.add_argument(
         '-l',
@@ -24,14 +27,6 @@ def get_argparser():
         '--pretrained-model-path',
         default='',
         help='Path to the pretrained model',
-        type=str)
-
-    parser.add_argument(
-        '-bin',
-        '--bin-path',
-        required=True,
-        help=('Path to the .bin data file, used to compute the prior log '
-              'probability distribution of the colors in the training data'),
         type=str)
 
     parser.add_argument(
@@ -49,6 +44,26 @@ def get_argparser():
         help=('Number of workers used during data loading'))
 
     return parser
+
+
+def _add_mutually_exclusive_bins_group(parser):
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        '-bin',
+        '--bin-path',
+        help=('Path to the .bin data file, used to compute the prior log '
+              'probability distribution of the colors in the training data'),
+        type=str)
+    group.add_argument(
+        '-npz',
+        '--npz-file-path',
+        help=(
+            'Path to the .npz file containing a dictionary of numpy arrays.'
+            'Keys in the dictionary: a_bins, b_bins, ab_bins and w_bins.'
+            'These numpy arrays are calculated using the function '
+            'get_and_store_ab_bins_and_rarity_weights from lab_distribution.py'
+        ),
+        type=str)
 
 
 def _add_subparser(parser):
@@ -151,9 +166,9 @@ def _add_test_subparser(subparsers):
 
 
 def _handle_train_parser(args):
-    train.train(
+    train_partial = partial(
+        train.train,
         pretrained_model_path=args.pretrained_model_path,
-        bin_path=args.bin_path,
         train_dir=args.train_dir,
         eval_dir=args.eval_dir,
         eval_every_n=args.eval_every_n,
@@ -168,6 +183,13 @@ def _handle_train_parser(args):
         betas=args.betas,
         epsilon=args.epsilon,
         weight_decay=args.weight_decay)
+
+    # npz bin path given
+    if args.npz_path:
+        train_partial(npz_path=args.npz_path)
+    # bin path given, prior distributions can be computed
+    else:
+        train_partial(bin_path=args.bin_path)
 
 
 def _handle_test_parser(args):

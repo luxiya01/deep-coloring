@@ -148,6 +148,28 @@ def get_rarity_weights(data_dir, plot=False):
     return w_bins
 
 
+def get_ab_bins_and_rarity_weights(data_dir, plot=False):
+    images = read_all_images(data_dir)
+    color_conversion = Convert2lab()
+    images_lab = color_conversion(images)
+    histogram_data = ab_histogram_dataset(images_lab, plot)
+    bins = discretize_ab_bins(histogram_data['hist_log'], -float('inf'))
+    w = rarity_weights(histogram_data['p'])
+    w_bins = flatten_rarity_matrix(w, w.min() + 1)
+    bins['w_bins'] = w_bins
+    return bins
+
+
+def get_and_store_ab_bins_and_rarity_weights(data_dir, outfile, plot=False):
+    bins = get_ab_bins_and_rarity_weights(data_dir, plot)
+    np.savez(
+        outfile,
+        ab_bins=bins['ab_bins'],
+        a_bins=bins['a_bins'],
+        b_bins=bins['b_bins'],
+        w_bins=bins['w_bins'])
+
+
 def main():
     data_dir = parse_args()
     get_ab_bins_from_data(data_dir, plot=True)
