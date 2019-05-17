@@ -8,6 +8,7 @@ import plot
 from custom_transforms import RGB2LAB, ToTensor
 from network import Net
 from logger import Logger
+from functools import partial
 
 
 def get_prior_bins_dict(bin_path, outfile):
@@ -30,8 +31,25 @@ def get_transforms(ab_bins):
     return torchvision.transforms.Compose([RGB2LAB(ab_bins), ToTensor()])
 
 
-def get_dataloader(root, transform, batch_size, shuffle=True, num_workers=2):
+def get_image_dataloader(root,
+                         transform,
+                         batch_size,
+                         shuffle=True,
+                         num_workers=2):
     dataset = torchvision.datasets.ImageFolder(root=root, transform=transform)
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers)
+    return dataloader
+
+
+def get_tensor_dataloader(root, batch_size, shuffle=True, num_workers=2):
+    loader = partial(torch.load)
+    extensions = ['pt']
+    dataset = torchvision.datasets.DatasetFolder(
+        root=root, loader=loader, extensions=extensions)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
@@ -222,16 +240,28 @@ def train(pretrained_model_path,
             'logger'], model['bins_dict']
 
     # Get training and test loaders
-    transform = get_transforms(bins_dict['ab_bins'])
-    trainloader = get_dataloader(
+    #   transform = get_transforms(bins_dict['ab_bins'])
+    #   trainloader = get_image_dataloader(
+    #       root=train_dir,
+    #       transform=transform,
+    #       batch_size=batch_size,
+    #       shuffle=True,
+    #       num_workers=num_workers)
+    #   evalloader = get_image_dataloader(
+    #       root=eval_dir,
+    #       transform=transform,
+    #       batch_size=batch_size,
+    #       shuffle=False,
+    #       num_workers=num_workers)
+
+    # Get training and test tensor loaders
+    trainloader = get_tensor_dataloader(
         root=train_dir,
-        transform=transform,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers)
-    evalloader = get_dataloader(
+    evalloader = get_tensor_dataloader(
         root=eval_dir,
-        transform=transform,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers)
@@ -261,8 +291,7 @@ def train(pretrained_model_path,
         if epoch % log_every_n == 0:
             ab_outputs = cnn.decode_ab_values()
             colorized_im = torch.cat((lightness, ab_outputs), 1)
-            log_training_loss_and_image(logger,
-                                        np.mean(individual_losses).cpu(),
+            log_training_loss_and_image(logger, np.mean(individual_losses),
                                         colorized_im.cpu(), epoch)
             logger.histogram_summary(
                 'Individual training loss',
