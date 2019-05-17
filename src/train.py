@@ -124,7 +124,6 @@ def create_model(pretrained_model_path,
     cnn = Net(bins_dict)
     cnn.set_rarity_weights(bins_dict['w_bins'])
 
-
     # Define criterion and optimizer for gradient descent
     optimizer = optim.Adam(
         cnn.parameters(),
@@ -239,7 +238,8 @@ def train(pretrained_model_path,
 
     # Train!
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    individual_losses = np.zeros(max(1,round(len(trainloader.dataset)/batch_size)))
+    individual_losses = np.zeros(
+        max(1, round(len(trainloader.dataset) / batch_size)))
     for epoch in range(pretrained_epoch, pretrained_epoch + num_epochs, 1):
         print('epoch = ', epoch)
         for i, data in enumerate(trainloader):
@@ -261,8 +261,9 @@ def train(pretrained_model_path,
         if epoch % log_every_n == 0:
             ab_outputs = cnn.decode_ab_values()
             colorized_im = torch.cat((lightness, ab_outputs), 1)
-            log_training_loss_and_image(logger, np.mean(individual_loss).cpu(), colorized_im.cpu(),
-                                        epoch)
+            log_training_loss_and_image(logger,
+                                        np.mean(individual_losses).cpu(),
+                                        colorized_im.cpu(), epoch)
             logger.histogram_summary(
                 'Individual training loss',
                 torch.FloatTensor(individual_losses).cpu(),
