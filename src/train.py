@@ -261,8 +261,7 @@ def train(pretrained_model_path,
         if epoch % log_every_n == 0:
             ab_outputs = cnn.decode_ab_values()
             colorized_im = torch.cat((lightness, ab_outputs), 1)
-            log_training_loss_and_image(logger,
-                                        np.mean(individual_losses).cpu(),
+            log_training_loss_and_image(logger, np.mean(individual_losses),
                                         colorized_im.cpu(), epoch)
             logger.histogram_summary(
                 'Individual training loss',
