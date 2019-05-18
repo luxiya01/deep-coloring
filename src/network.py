@@ -150,29 +150,5 @@ class Net(nn.Module):
         l = -1 / (Z.shape[0] * Z.shape[2] * Z.shape[3]) * sum_v_times_sum
         return l
 
-
-#    def get_rarity_weights(self, data_dir):
-#        self.rarity_weights = torch.from_numpy(
-#            lab_dist.get_rarity_weights(
-#                data_dir))  # This guy could be called every batch if we want
-
     def set_rarity_weights(self, rarity_weights):
         self.rarity_weights = torch.from_numpy(rarity_weights)
-
-if __name__ == '__main__':
-
-    net = Net()
-    print(len(list(net.parameters())))
-    in_data = torch.rand(1, 1, 256, 256)
-    out_data = net(in_data)
-    target = torch.rand(1, 2, 256, 256)
-
-    print(out_data.shape)
-    print(target.shape)
-
-    criterion = nn.CrossEntropyLoss()
-    criterion = nn.MSELoss()
-    loss = criterion(out_data, target)
-    print(loss.grad_fn)
-
-    print(out_data.shape)
