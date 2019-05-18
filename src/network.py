@@ -19,10 +19,12 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.device = torch.device('cuda:0' if torch.cuda.
                                    is_available() else 'cpu')
+        self.color_bins = 225  # Number of color bins in ab colorspace
         self.a_bins = torch.from_numpy(ab_bins_dict['a_bins']).to(self.device)
         self.b_bins = torch.from_numpy(ab_bins_dict['b_bins']).to(self.device)
+        self.a_bins_reshape = self.a_bins.view(self.color_bins, 1, 1).float()
+        self.b_bins_reshape = self.b_bins.view(self.color_bins, 1, 1).float()
         self.BN_momentum = 1e-3  # Batch normalization momentum
-        self.color_bins = 225  # Number of color bins in ab colorspace
         # nn.Conv2d(a,b,c);  a input image channel, b output channels, cxc square convolution kernel
         ### Conv 1 ###
         self.bw_conv1_1 = nn.Conv2d(1, 64, 3, stride=1, padding=1, dilation=1)
@@ -124,8 +126,10 @@ class Net(nn.Module):
 
     def decode_ab_values(self):
         ### Decoding ###
-        a = torch.sum(self.Zhat * self.a_bins)
-        b = torch.sum(self.Zhat * self.b_bins)
+        a = torch.sum(self.Zhat * self.a_bins_reshape, dim=1)
+        b = torch.sum(self.Zhat * self.b_bins_reshape, dim=1)
+        print(self.Zhat.shape)
+        print(a.shape, b.shape)
 
         a = torch.reshape(
             a, (a.shape[0], 1, a.shape[1], a.shape[2])
