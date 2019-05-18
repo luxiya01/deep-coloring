@@ -1,4 +1,5 @@
 import os
+import math
 import numpy as np
 import torch
 import torch.optim as optim
@@ -75,39 +76,35 @@ def log_training_loss_and_image(logger, loss, colorized_im, epoch):
 
 def log_eval(model, optimizer, evalloader, logger, epoch, prefix='eval'):
     index = 0
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     losses = []
-    for i, data in enumerate(evalloader):
-        inputs, _ = data
-        lightness, z_truth, original = inputs['lightness'], inputs[
-            'z_truth'], inputs['original_lab_image']
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    with torch.no_grad():
+        for i, data in enumerate(evalloader):
+            inputs, _ = data
+            lightness, z_truth = inputs['lightness'].to(device), inputs['z_truth'].to(device)
 
-        # Cuda conversion
-        lightness = lightness.to(device)
-        z_truth = z_truth.to(device)
+            optimizer.zero_grad()
+            _ = model(lightness)
+            loss = model.loss(z_truth)
+            losses.append(loss)
 
-        optimizer.zero_grad()
-        _ = model(lightness)
-        loss = model.loss(z_truth)
-        losses.append(loss)
+            # Log images to tensorboardx if prefix is not eval, i.e. not training
+            if prefix != 'eval':
+                ab_outputs = model.decode_ab_values()
+                colorized_im = torch.cat((lightness, ab_outputs), 1).cpu()
 
-        # Log images to tensorboardx if prefix is not eval, i.e. not training
-        if prefix != 'eval':
-            ab_outputs = model.decode_ab_values()
-            colorized_im = torch.cat((lightness, ab_outputs), 1)
+                for j in range(colorized_im.detach().shape[0]):
 
-            for j in range(colorized_im.detach().shape[0]):
+                    images = plot.imshow_torch(
+                        colorized_im.detach()[j, :, :, :], figure=0)
+                    logger.add_image(prefix + '_epoch_' + str(epoch),
+                                     torchvision.utils.make_grid(images), index)
+                    index += 1
 
-                images = plot.imshow_torch(
-                    colorized_im.detach()[j, :, :, :], figure=0)
-                logger.add_image(prefix + '_epoch_' + str(epoch),
-                                 torchvision.utils.make_grid(images), index)
-                index += 1
-
-    # Log average loss to tensorboardx
-    losses = torch.FloatTensor(losses)
-    logger.scalar_summary(prefix + '_average_loss', losses.mean(), epoch)
-    logger.histogram_summary(prefix + '_loss_hist', losses, epoch)
+        # Log average loss to tensorboardx
+        losses = torch.FloatTensor(losses)
+        logger.scalar_summary(prefix + '_average_loss', losses.mean(), epoch)
+        logger.histogram_summary(prefix + '_loss_hist', losses, epoch)
 
 
 def save_model_checkpoints(epoch, model, optimizer, loss, path):
@@ -132,6 +129,7 @@ def create_model(pretrained_model_path,
                  epsilon=1e-8,
                  weight_decay=.001,
                  mode='train'):
+    print('mode = ', mode)
     if bin_path != '':
         bins_dict = get_prior_bins_dict(bin_path,
                                         'prior_distribution_' + mode + '.npz')
@@ -140,6 +138,10 @@ def create_model(pretrained_model_path,
 
     # Create network
     cnn = Net(bins_dict)
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    cnn = cnn.to(device)
+
     cnn.set_rarity_weights(bins_dict['w_bins'])
 
     # Define criterion and optimizer for gradient descent
@@ -163,8 +165,6 @@ def create_model(pretrained_model_path,
             cnn.train()
         else:
             cnn.eval()
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    cnn = cnn.to(device)
 
     # Log computation graph to tensorboardx
     logger = get_logger(log_dir)
@@ -190,19 +190,20 @@ def test(pretrained_model_path,
         bin_path=bin_path,
         npz_path=npz_path,
         pretrained_model_path=pretrained_model_path,
-        log_dir=log_dir)
+        log_dir=log_dir,
+        mode='test')
     cnn, optimizer, pretrained_epoch, logger, bins_dict = model[
         'model'], model['optimizer'], model['pretrained_epoch'], model[
             'logger'], model['bins_dict']
 
     # Get training and test loaders
     transform = get_transforms(bins_dict['ab_bins'])
-    testloader = get_dataloader(
+    testloader = get_tensor_dataloader(
         root=test_dir,
-        transform=transform,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers)
+    print('Log eval......')
 
     log_eval(
         cnn, optimizer, testloader, logger, pretrained_epoch, prefix='test')
@@ -240,19 +241,19 @@ def train(pretrained_model_path,
             'logger'], model['bins_dict']
 
     # Get training and test loaders
-    #   transform = get_transforms(bins_dict['ab_bins'])
-    #   trainloader = get_image_dataloader(
-    #       root=train_dir,
-    #       transform=transform,
-    #       batch_size=batch_size,
-    #       shuffle=True,
-    #       num_workers=num_workers)
-    #   evalloader = get_image_dataloader(
-    #       root=eval_dir,
-    #       transform=transform,
-    #       batch_size=batch_size,
-    #       shuffle=False,
-    #       num_workers=num_workers)
+    #    transform = get_transforms(bins_dict['ab_bins'])
+    #    trainloader = get_image_dataloader(
+    #        root=train_dir,
+    #        transform=transform,
+    #        batch_size=batch_size,
+    #        shuffle=True,
+    #        num_workers=num_workers)
+    #    evalloader = get_image_dataloader(
+    #        root=eval_dir,
+    #        transform=transform,
+    #        batch_size=batch_size,
+    #     shuffle=False,
+    #     num_workers=num_workers)
 
     # Get training and test tensor loaders
     trainloader = get_tensor_dataloader(
@@ -269,14 +270,13 @@ def train(pretrained_model_path,
     # Train!
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     individual_losses = np.zeros(
-        max(1, round(len(trainloader.dataset) / batch_size)))
+        max(1, math.ceil(len(trainloader.dataset) / batch_size)))
     for epoch in range(pretrained_epoch, pretrained_epoch + num_epochs, 1):
         print('epoch = ', epoch)
         for i, data in enumerate(trainloader):
             inputs, labels = data
-            lightness, z_truth, original = inputs['lightness'].to(
-                device), inputs['z_truth'].to(
-                    device), inputs['original_lab_image'].to(device)
+            lightness, z_truth = inputs['lightness'].to(
+                device), inputs['z_truth'].to(device)
 
             optimizer.zero_grad()
 
@@ -300,9 +300,11 @@ def train(pretrained_model_path,
                 bins=100)
 
         # Log evaluation results to tensorboardx
-        if epoch % eval_every_n == 0:
-            log_eval(cnn, optimizer, evalloader, logger, epoch)
 
-        # Store model checkpoint every n epochs and at the last epoch
+
+#        if epoch % eval_every_n == 0:
+#            log_eval(cnn, optimizer, evalloader, logger, epoch)
+
+# Store model checkpoint every n epochs and at the last epoch
         if epoch % checkpoint_every_n == 0 or epoch == pretrained_epoch + num_epochs - 1:
             save_model_checkpoints(epoch, cnn, optimizer, loss, checkpoint_dir)
