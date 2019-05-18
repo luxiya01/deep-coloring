@@ -196,13 +196,21 @@ def _handle_train_parser(args):
 def _handle_test_parser(args):
     if args.pretrained_model_path == '':
         raise ValueError('Please provide a pretrained model for evaluation!')
-    train.test(
+
+    test_partial = partial(
+        train.test,
         pretrained_model_path=args.pretrained_model_path,
-        bin_path=args.bin_path,
         test_dir=args.test_dir,
         log_dir=args.log_dir,
         batch_size=args.batch_size,
         num_workers=args.num_workers)
+
+    # npz bin path given
+    if args.npz_path:
+        test_partial(npz_path=args.npz_path)
+    # bin path given, prior distributions can be computed
+    else:
+        test_partial(bin_path=args.bin_path)
 
 
 def parse_args(sys_args):

@@ -197,9 +197,8 @@ def test(pretrained_model_path,
 
     # Get training and test loaders
     transform = get_transforms(bins_dict['ab_bins'])
-    testloader = get_dataloader(
+    testloader = get_tensor_dataloader(
         root=test_dir,
-        transform=transform,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers)
