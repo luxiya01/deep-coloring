@@ -19,7 +19,8 @@ class ToTensor(object):
 
 
 class RGB2LAB(object):
-    def __init__(self, ab_bins):
+    def __init__(self, ab_bins, color_space):
+        self.color_space = color_space
         self.ab_bins = ab_bins
         self.num_bins = len(ab_bins)
         self.nbrs = NearestNeighbors(
@@ -30,14 +31,27 @@ class RGB2LAB(object):
 
         # Image read in by PIL follows RGB convension, therefore the conversion
         # is RGB2LAB
-        lab_image = cv2.cvtColor(sample, cv2.COLOR_RGB2LAB)
-        # L channel is used as input
-        l = lab_image[:, :, 0]
+        if self.color_space == 'lab':
+            lab_image = cv2.cvtColor(sample, cv2.COLOR_RGB2LAB)
+            # L channel is used as input
+            l = lab_image[:, :, 0]
 
-        # AB channels are used as ground truth
-        ab = lab_image[:, :, 1:]
+            # AB channels are used as ground truth
+            ab = lab_image[:, :, 1:]
 
-        w, h = ab.shape[0], ab.shape[1]
+            w, h = ab.shape[0], ab.shape[1]
+
+
+        if self.color_space == 'hsl':
+            hsl_image = cv2.cvtColor(sample, cv2.COLOR_RGB2HSL)
+            # L channel is used as input
+            l = hsl_image[:, :, 1]
+
+            # AB channels are used as ground truth
+            ab = hsl_image[:, :, (0,2)]  # hs values, named ab because lazyness
+
+            w, h = ab.shape[0], ab.shape[1]
+
 
         ab_reshaped = ab.reshape(-1, 2)
         distances, indices = self.nbrs.kneighbors(ab_reshaped)

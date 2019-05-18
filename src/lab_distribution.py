@@ -39,6 +39,105 @@ def read_all_images(path_to_data):
         images = np.transpose(images, (0, 3, 2, 1)).astype(np.float32) / 255
         return images
 
+#######################  HSL
+
+class Convert2HLS:
+    def __call__(self, images):
+        print(images.dtype)
+        images_lab = np.zeros_like(images)
+        for i in range(images.shape[0]):
+            images_lab[i, :, :, :] = cv2.cvtColor(images[i, :, :, :],
+                                                  cv2.COLOR_BGR2HLS)
+        return images_lab
+
+
+def hs_histogram_dataset(dataset, plot=False):
+    im_ab = dataset[:, :, :, (0,2)]
+    im_ab_vec = np.reshape(
+        im_ab, (np.prod(im_ab.shape[:3]), 2))  # 128 since colors are 8bit
+    hist, xedges, yedges = np.histogram2d(
+        im_ab_vec[:, 0],
+        im_ab_vec[:, 1],
+        bins=15,
+        range=[[0, 360], [0, 1]])
+    hist_log = np.log(hist / im_ab_vec.shape[0])
+    p = hist / im_ab_vec.shape[0]
+
+    print(im_ab_vec.shape)
+
+    if plot:
+        x_mesh, y_mesh = np.meshgrid(xedges, yedges)
+
+        plt.figure()
+        #plt.gca().invert_yaxis()
+        plt.pcolormesh(x_mesh, y_mesh, hist_log)
+        #plt.show()
+    return {'hist': hist, 'hist_log': hist_log, 'p': p}
+
+
+def convert_index_to_hs_value(index):
+    h_from_i = lambda i: 360 - 360/15 * i + 15 / 2 
+    s_from_i = lambda i: 100 - 100/15 * i + 15 / 2 
+    h = h_from_i(index[0])
+    s = s_from_i(index[1])
+    return (h, s)
+
+
+def discretize_hs_bins(matrix, threshold):
+    # lists of tuples where index is the index corresponding hs values 
+    non_zero_indices = np.argwhere(matrix > threshold)
+    hs_bins = []
+    h_bins = []
+    s_bins = []
+    for i in non_zero_indices:
+        hs_val = convert_index_to_hs_value(i)
+        h, s = hs_val
+        h_bins.append(h)
+        s_bins.append(s)
+        hs_bins.append(hs_val)
+    return {
+        'ab_bins': np.array(hs_bins),
+        'a_bins': np.array(h_bins),
+        'b_bins': np.array(s_bins)
+    }
+
+
+
+def get_hs_bins_from_data(data_dir, plot=False):
+    images = read_all_images(data_dir)
+    color_conversion = Convert2HLS()
+    images_hls = color_conversion(images)
+    histogram_data = hs_histogram_dataset(images_hls, plot)
+    hs_bins = discretize_hs_bins(histogram_data['hist_log'], -float('inf'))
+    return hs_bins
+
+
+
+def get_hs_bins_and_rarity_weights(data_dir, plot=False):
+    images = read_all_images(data_dir)
+    color_conversion = Convert2HLS()
+    images_hls = color_conversion(images)
+    histogram_data = hs_histogram_dataset(images_hls, plot)
+    bins = discretize_hs_bins(histogram_data['hist_log'], -float('inf'))
+    w = rarity_weights(histogram_data['p'], sigma=1)
+    w_bins = flatten_rarity_matrix(w, w.min() -1)
+    bins['w_bins'] = w_bins
+    return bins
+
+
+def get_and_store_ab_bins_and_rarity_weights(data_dir, outfile, plot=False):
+    bins = get_hs_bins_and_rarity_weights(data_dir, plot)
+    np.savez(
+        outfile,
+        ab_bins=bins['ab_bins'],
+        a_bins=bins['a_bins'],
+        b_bins=bins['b_bins'],
+        w_bins=bins['w_bins'])
+    return bins
+
+
+
+########################### LAB
 
 class Convert2lab:
     def __call__(self, images):
@@ -66,7 +165,7 @@ def ab_histogram_dataset(dataset, plot=False):
     if plot:
         x_mesh, y_mesh = np.meshgrid(xedges, yedges)
 
-        plt.figure(1)
+        plt.figure()
         plt.gca().invert_yaxis()
         plt.pcolormesh(x_mesh, y_mesh, hist_log)
         #plt.show()
@@ -143,7 +242,7 @@ def get_rarity_weights(data_dir, plot=False):
     color_conversion = Convert2lab()
     images_lab = color_conversion(images)
     histogram_data = ab_histogram_dataset(images_lab, plot)
-    w = rarity_weights(histogram_data['p'])
+    w = rarity_weights(histogram_data['p'], sigma=1)
     w_bins = flatten_rarity_matrix(w, w.min() + 1)
     return w_bins
 
@@ -160,8 +259,8 @@ def get_ab_bins_and_rarity_weights(data_dir, plot=False):
     return bins
 
 
-def get_and_store_ab_bins_and_rarity_weights(data_dir, outfile, plot=False):
-    bins = get_ab_bins_and_rarity_weights(data_dir, plot)
+def get_and_store_hs_bins_and_rarity_weights(data_dir, outfile, plot=False):
+    bins = get_hs_bins_and_rarity_weights(data_dir, plot)
     np.savez(
         outfile,
         ab_bins=bins['ab_bins'],
@@ -172,9 +271,35 @@ def get_and_store_ab_bins_and_rarity_weights(data_dir, outfile, plot=False):
 
 
 def main():
-    data_dir = parse_args()
-    get_ab_bins_from_data(data_dir, plot=True)
-    get_rarity_weights(data_dir, plot=False)
+    data_dir = '/home/perrito/kth/DD2424/project/images/stl10_binary/train_X.bin'
+    images = read_all_images(data_dir)
+
+    bgr2hls = Convert2HLS()
+    bgr2lab = Convert2lab()
+    images_hls = bgr2hls(images)
+    images_lab = bgr2lab(images)
+
+    hist_hls = hs_histogram_dataset(images_hls, plot=True)
+    ab_histogram_dataset(images_lab, plot=True)
+
+    print(hist_hls['p'].shape)
+    w = rarity_weights(hist_hls['p'], sigma=1)
+    plt.figure()
+
+    plt.pcolormesh(w)
+
+    anka = get_hs_bins_and_rarity_weights(data_dir, plot=True)
+
+    print(anka.keys())
+    print(anka['a_bins'].shape)
+    print(anka['w_bins'].shape)
+    print(anka['ab_bins'].shape)
+    print(anka['b_bins'].shape)
+
+    plt.show()
+
+    #get_ab_bins_from_data(data_dir, plot=True)
+    #get_rarity_weights(data_dir, plot=False)
 
 
 if __name__ == '__main__':

@@ -28,7 +28,7 @@ def read_prior_bins_dict(npz_path):
 def get_transforms(ab_bins):
     """Given a list of discretized ab_bins, returns a list
     of transforms to be applied to the input data."""
-    return torchvision.transforms.Compose([RGB2LAB(ab_bins), ToTensor()])
+    return torchvision.transforms.Compose([RGB2LAB(ab_bins, 'hsl'), ToTensor()])
 
 
 def get_image_dataloader(root,
