@@ -124,14 +124,14 @@ class Net(nn.Module):
 
     def decode_ab_values(self):
         ### Decoding ###
-        ind = torch.argmax(self.Zhat, dim=1)
-        a, b = self.a_bins[ind], self.b_bins[ind]
+        a = torch.sum(self.Zhat * self.a_bins)
+        b = torch.sum(self.Zhat * self.b_bins)
+
         a = torch.reshape(
             a, (a.shape[0], 1, a.shape[1], a.shape[2])
         )  # a has originally shape [samples,H,W], has to be [samples,channels,H,W]
         b = torch.reshape(b, (b.shape[0], 1, b.shape[1], b.shape[2]))
         ab = torch.cat((a, b), 1).float()
-
         return ab
 
     def decode_final_colorful_image(self, l, ab):
