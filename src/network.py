@@ -142,42 +142,12 @@ class Net(nn.Module):
         q_star = torch.argmax(Z, 1)
         v = self.rarity_weights[0, q_star].float()
         v = v.to(self.device)
-        #        l = -1 / Z.shape[0] * torch.sum(v * torch.sum(Z * torch.log(self.Zhat + 1e-30), (1)))
-
-        #       print('q_star: ', q_star, q_star.shape)
-        # print('v: ', v, v.shape)
-        #       print('Z: ', Z, Z.shape)
-        # print('Zhat: ', self.Zhat, self.Zhat.shape)
-        #
         log_zhat = torch.log(self.Zhat + 1e-40)
-        #       print('log_zhat: ', log_zhat, log_zhat.shape)
-        #       print('max log_zhat: ', log_zhat.max())
-        #       print('max log_zhat: ', log_zhat.min())
-        #       #
         z_times_log_zhat = Z * log_zhat
-        #       print('z_times_log_zhat: ', z_times_log_zhat, z_times_log_zhat.shape)
-        #       print('max z_times_log_zhat: ', z_times_log_zhat.max())
-        #       print('min z_times_log_zhat: ', z_times_log_zhat.min())
-        #       #
         sum_z_times_log_zhat = torch.sum(z_times_log_zhat, 1)
-        #       print('sum_z_times_log_zhat: ', sum_z_times_log_zhat,
-        #             sum_z_times_log_zhat.shape)
-        #       print('max sum_z_times_log_zhat: ', sum_z_times_log_zhat.max())
-        #       print('min sum_z_times_log_zhat: ', sum_z_times_log_zhat.min())
-        #       #
         v_times_sum = v * sum_z_times_log_zhat
-        #       print('v_times_sum: ', v_times_sum, v_times_sum.shape)
-        #       print('max v_times_sum: ', v_times_sum.max())
-        #       print('min v_times_sum: ', v_times_sum.min())
-        #       #
         sum_v_times_sum = torch.sum(v_times_sum)
-        #       #
-        #       print('-----------')
-        #       print('sum_v_times_sum: ', sum_v_times_sum, sum_v_times_sum.shape)
-        #       print('-----------')
-        #       #
         l = -1 / (Z.shape[0] * Z.shape[2] * Z.shape[3]) * sum_v_times_sum
-        #       print('l', l, l.shape)
         return l
 
 
