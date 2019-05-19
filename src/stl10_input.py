@@ -1,3 +1,7 @@
+"""
+Download and read data from STL-10.
+Credits: https://github.com/mttk/STL10
+"""
 from __future__ import print_function
 
 import sys
