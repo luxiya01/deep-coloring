@@ -16,29 +16,40 @@ import cv2
 sys.path.append('/opt/ros/kinetic/lib/python2.7/dist-packages')
 
 
-def imshow_torch(image, figure=1, plot=False):
+def imshow_torch(image, figure=1, plot=False, color_space='lab'):
+    if color_space == 'lab':
+        color_conversion_code = cv2.COLOR_LAB2RGB
+    elif color_space == 'hls':
+        color_conversion_code = cv2.COLOR_HLS2RGB
+
     ### imshows torch tensors, image.shape should be [channel,H,W]
 
     image_np_lab = np.transpose(
         image.numpy(), (1, 2, 0))  # opencv wants images like [H,W,channel]
 
     # All channels
-    image_np_rgb_all = cv2.cvtColor(image_np_lab, cv2.COLOR_LAB2RGB)
-    
+    image_np_rgb_all = cv2.cvtColor(image_np_lab, color_conversion_code)
+
     # L channel
     image_np_L = np.zeros_like(image_np_lab)
-    image_np_L[:, :, 0] = image_np_lab[:, :, 0]
-    image_np_rgb_L = cv2.cvtColor(image_np_L, cv2.COLOR_LAB2RGB)
+    if color_space == 'lab':
+        image_np_L[:, :, 0] = image_np_lab[:, :, 0]
+    elif color_space == 'hls':
+        image_np_L[:, :, 1] = image_np_lab[:, :, 1]
+    image_np_rgb_L = cv2.cvtColor(image_np_L, color_conversion_code)
 
     # La channels
     image_np_a = copy.copy(image_np_lab)
     image_np_a[:, :, 2] = 0
-    image_np_rgb_a = cv2.cvtColor(image_np_a, cv2.COLOR_LAB2RGB)
+    image_np_rgb_a = cv2.cvtColor(image_np_a, color_conversion_code)
 
     # Lb channels
     image_np_b = copy.copy(image_np_lab)
-    image_np_b[:, :, 1] = 0
-    image_np_rgb_b = cv2.cvtColor(image_np_b, cv2.COLOR_LAB2RGB)
+    if color_space == 'lab':
+        image_np_b[:, :, 1] = 0
+    else:
+        image_np_b[:, :, 0] = 0
+    image_np_rgb_b = cv2.cvtColor(image_np_b, color_conversion_code)
 
     # Plots
     if plot:
@@ -66,7 +77,7 @@ def imshow_torch(image, figure=1, plot=False):
         'image_np_a':
         torch.from_numpy(np.transpose(image_np_rgb_a, (2, 0, 1))),
         'image_np_b':
-        torch.from_numpy(np.transpose(image_np_rgb_b, (2, 0, 1)))
+        torch.from_numpy(np.transpose(image_np_rgb_b, (2, 0, 1))),
     }
     return torch.cat((images['image_np_rgb_all'], images['image_np_L'],
                       images['image_np_a'], images['image_np_b']), 2)

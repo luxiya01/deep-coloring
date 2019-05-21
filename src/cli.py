@@ -16,6 +16,14 @@ def get_argparser():
     _add_mutually_exclusive_bins_group(parser)
 
     parser.add_argument(
+        '-color',
+        '--color-space',
+        required=True,
+        type=str,
+        choices=['hls', 'lab'],
+        help='The color space used for the network')
+
+    parser.add_argument(
         '-l',
         '--log-dir',
         default='log',
@@ -169,6 +177,7 @@ def _add_test_subparser(subparsers):
 def _handle_train_parser(args):
     train_partial = partial(
         train.train,
+        color_space=args.color_space,
         pretrained_model_path=args.pretrained_model_path,
         train_dir=args.train_dir,
         eval_dir=args.eval_dir,
@@ -199,6 +208,7 @@ def _handle_test_parser(args):
 
     test_partial = partial(
         train.test,
+        color_space=args.color_space,
         pretrained_model_path=args.pretrained_model_path,
         test_dir=args.test_dir,
         log_dir=args.log_dir,
