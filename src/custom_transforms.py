@@ -40,10 +40,10 @@ class RGB2LAB(object):
             ab = lab_image[:, :, 1:]
 
             w, h = ab.shape[0], ab.shape[1]
+            original_image = lab_image
 
-
-        if self.color_space == 'hsl':
-            hsl_image = cv2.cvtColor(sample, cv2.COLOR_RGB2HSL)
+        elif self.color_space == 'hls':
+            hsl_image = cv2.cvtColor(sample, cv2.COLOR_RGB2HLS)
             # L channel is used as input
             l = hsl_image[:, :, 1]
 
@@ -51,7 +51,11 @@ class RGB2LAB(object):
             ab = hsl_image[:, :, (0,2)]  # hs values, named ab because lazyness
 
             w, h = ab.shape[0], ab.shape[1]
+            original_image = hsl_image
 
+        else:
+            print('color space is on wrong format')
+            print(self.color_space)
 
         ab_reshaped = ab.reshape(-1, 2)
         distances, indices = self.nbrs.kneighbors(ab_reshaped)
@@ -70,7 +74,7 @@ class RGB2LAB(object):
             'distances': distances,
             'lightness': l.reshape(1, w, h).astype(np.float32),
             'z_truth': z_truth_reshaped.astype(np.float32),
-            'original_lab_image': lab_image.astype(np.float32)
+            'original_lab_image': original_image.astype(np.float32)
         }
 
     def _plot(self, true_ab, z_truth):

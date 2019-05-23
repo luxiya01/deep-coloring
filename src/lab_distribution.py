@@ -58,7 +58,7 @@ def hs_histogram_dataset(dataset, plot=False):
     hist, xedges, yedges = np.histogram2d(
         im_ab_vec[:, 0],
         im_ab_vec[:, 1],
-        bins=15,
+        bins=(25,9),
         range=[[0, 360], [0, 1]])
     hist_log = np.log(hist / im_ab_vec.shape[0])
     p = hist / im_ab_vec.shape[0]
@@ -70,14 +70,14 @@ def hs_histogram_dataset(dataset, plot=False):
 
         plt.figure()
         #plt.gca().invert_yaxis()
-        plt.pcolormesh(x_mesh, y_mesh, hist_log)
+        plt.pcolormesh(x_mesh, y_mesh, hist_log.T)
         #plt.show()
     return {'hist': hist, 'hist_log': hist_log, 'p': p}
 
 
 def convert_index_to_hs_value(index):
-    h_from_i = lambda i: 360 - 360/15 * i + 15 / 2 
-    s_from_i = lambda i: 100 - 100/15 * i + 15 / 2 
+    h_from_i = lambda i: 360 - 360/25 * i + 25 / 2 
+    s_from_i = lambda i: 1 - 1/9 * i + 0.9 / 2 
     h = h_from_i(index[0])
     s = s_from_i(index[1])
     return (h, s)
@@ -271,7 +271,7 @@ def get_and_store_hs_bins_and_rarity_weights(data_dir, outfile, plot=False):
 
 
 def main():
-    data_dir = '/home/perrito/kth/DD2424/project/images/stl10_binary/train_X.bin'
+    data_dir = '/home/ramme95/stl10_binary/train_X.bin'
     images = read_all_images(data_dir)
 
     bgr2hls = Convert2HLS()
@@ -295,7 +295,7 @@ def main():
     print(anka['w_bins'].shape)
     print(anka['ab_bins'].shape)
     print(anka['b_bins'].shape)
-
+    print(anka['ab_bins'][:3,:])
     plt.show()
 
     #get_ab_bins_from_data(data_dir, plot=True)

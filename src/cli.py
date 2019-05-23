@@ -26,7 +26,7 @@ def get_argparser():
     parser.add_argument(
         '-l',
         '--log-dir',
-        default='log',
+        default='log_hls_may23_25_9',
         type=str,
         help='Path to the log files used for tensorboard visualization')
 
@@ -130,7 +130,7 @@ def _add_train_subparser(subparsers):
     train.add_argument(
         '-c',
         '--checkpoint-every-n',
-        default=400,
+        default=200,
         help='Save model checkpoint every n epochs',
         type=int)
 
