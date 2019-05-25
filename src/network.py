@@ -125,7 +125,7 @@ class Net(nn.Module):
         return self.Zhat
 
     def decode_ab_values(self):
-        ### Decoding ###
+        ### Decoding by mean value ###
         a = torch.sum(self.Zhat * self.a_bins_reshape, dim=1)
         b = torch.sum(self.Zhat * self.b_bins_reshape, dim=1)
         print(self.Zhat.shape)
@@ -137,6 +137,27 @@ class Net(nn.Module):
         b = torch.reshape(b, (b.shape[0], 1, b.shape[1], b.shape[2]))
         ab = torch.cat((a, b), 1).float()
         return ab
+
+    def decode_draw_from_distribution(self, colorspace):
+        ### Decoding image by drawing from the Zhat distribution ###
+        print('Zhat shape')
+        print(self.Zhat.shape)  # [samples, bins=225, H=96, W=96]
+        #flat_Zhat = torch.reshape(self.Zhat, (-1,)).numpy()
+        ab = np.zeros((Zhat.shape[0], 2, Zhat.shape[2], Zhat.shape[3]))  # shape like [samples, channel, H, W]
+        Zhat = self.Zhat.numpy()  # numpy version
+        for sample_index in range(Zhat.shape[0]):
+            for row_index in range(Zhat.shape[2]):
+                for col_index in range(Zhat.shape[3]):
+                    ab_index = np.random.choice(Zhat.shape[1], 
+                    1, p = Zhat[sample_index, :, row_index, col_index])  # indexes of ab color bins 
+                    if colorspace == 'lab':
+                        ab[sample_index, :, row_index, col_index] = lab_dist.convert_index_to_ab_value(ab_index)
+                    elif colorspace == 'hls':
+                        ab[sample_index, :, row_index, col_index] = lab_dist.convert_index_to_hs_value(ab_index)
+                    else:
+                        print('pls enter correct colorspace argument in decode_draw_from_distribution, should be lab or hls')
+        return torch.from_numpy(ab)
+
 
     def decode_final_colorful_image(self, l, ab):
         lab = torch.cat((l, ab), 1)
